@@ -7,6 +7,7 @@ const { getLayout, ratioFromPointer, isGameUrl, isWebUrl } = require('./layout.c
 const I18N = require('./i18n.js');
 
 const IS_MAC = process.platform === 'darwin';
+const IS_LINUX = process.platform === 'linux';
 const GAME_URL = 'https://levelingidle2d.com.br/jogar';
 const RELEASES_API = 'https://api.github.com/repos/bruno220218/leveling-dual/releases?per_page=10';
 const RELEASES_PAGE = 'https://github.com/bruno220218/leveling-dual/releases';
@@ -27,6 +28,11 @@ if (SHOT) app.setPath('userData', path.join(SHOT, 'userdata'));
 app.commandLine.appendSwitch('disable-background-timer-throttling');
 app.commandLine.appendSwitch('disable-renderer-backgrounding');
 app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
+// Muitas VMs e servidores Linux bloqueiam WebGL por falta de GPU; libera o fallback por software.
+if (IS_LINUX) {
+  app.commandLine.appendSwitch('enable-unsafe-swiftshader');
+  app.commandLine.appendSwitch('ignore-gpu-blocklist');
+}
 let main;
 let views = [];
 let blocker;

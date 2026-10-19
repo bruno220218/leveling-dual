@@ -106,6 +106,9 @@ O aplicativo é **universal**: funciona em Macs Intel e Apple Silicon. Ele não 
 
 Em outras distribuições, baixe o **`.tar.gz`**, extraia e execute o arquivo `leveling-dual`. O pacote `.deb` instala em `/opt/leveling-dual` e já configura a permissão do sandbox.
 
+> [!NOTE]
+> Em VPS ou máquina virtual sem GPU, o app habilita o WebGL por software (SwiftShader) automaticamente. Funciona, mas com desempenho menor que numa GPU real.
+
 ### Android
 
 1. Baixe o **`LevelingDual-Android-1.0.0.apk`** no celular.

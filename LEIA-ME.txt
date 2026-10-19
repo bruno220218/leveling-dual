@@ -1,5 +1,5 @@
 LEVELING DUAL — DUAS CONTAS EM UMA JANELA
-Versão 1.4 — Windows 10/11 (64 bits), macOS (Intel e Apple Silicon), Linux e Android
+Versão 1.4.1 — Windows 10/11 (64 bits), macOS (Intel e Apple Silicon), Linux e Android
 
 BAIXAR
 https://github.com/bruno220218/leveling-dual/releases
@@ -29,6 +29,8 @@ COMO ABRIR NO LINUX (UBUNTU/DEBIAN)
 Em outras distribuições, extraia o .tar.gz e execute o arquivo leveling-dual.
 Se aparecer erro de sandbox, verifique se /opt/leveling-dual/chrome-sandbox
 está com permissão 4755 (o pacote .deb já configura isso).
+Em VPS ou máquina virtual sem GPU, o aplicativo libera o WebGL por software
+(SwiftShader) automaticamente; o desempenho fica menor que numa GPU real.
 
 COMO ABRIR NO ANDROID
 1. Baixe o APK no celular.

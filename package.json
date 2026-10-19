@@ -1,7 +1,7 @@
 {
   "name": "leveling-dual",
   "productName": "Leveling Dual",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "private": true,
   "description": "Duas sessões independentes de Leveling Idle em uma janela.",
   "main": "app/main.cjs",

@@ -14,7 +14,7 @@ async function setup(t, options = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'leveling-test-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   if (options.prefs) fs.writeFileSync(path.join(dir, 'preferences.json'), JSON.stringify(options.prefs));
-  const windows = [], views = [], handlers = new Map(), opened = [], dialogs = [];
+  const windows = [], views = [], handlers = new Map(), opened = [], dialogs = [], switches = [];
   class Contents extends EventEmitter {
     constructor(options) { super(); this.options = options; this.loads = []; this.messages = []; this.session = { setPermissionRequestHandler() {}, setPermissionCheckHandler() {}, cookies: { flushStore: async () => {} } }; }
     send(channel, data) { this.messages.push({ channel, data }); }
@@ -44,7 +44,7 @@ async function setup(t, options = {}) {
   }
   const app = new EventEmitter();
   Object.assign(app, { setName() {}, setPath() {}, getVersion: () => '1.1.0', getLocale: () => options.locale || 'pt-BR',
-    getAppMetrics: () => views.map((v, i) => ({ pid: v.webContents.pid, cpu: { percentCPUUsage: 3.4 + i }, memory: { workingSetSize: 204800 * (i + 1) } })), commandLine: { appendSwitch() {} }, getPath: () => dir, requestSingleInstanceLock: () => true, whenReady: () => Promise.resolve(), quit() {} });
+    getAppMetrics: () => views.map((v, i) => ({ pid: v.webContents.pid, cpu: { percentCPUUsage: 3.4 + i }, memory: { workingSetSize: 204800 * (i + 1) } })), commandLine: { appendSwitch: name => switches.push(name) }, getPath: () => dir, requestSingleInstanceLock: () => true, whenReady: () => Promise.resolve(), quit() {} });
   const electron = { app, BrowserWindow: Window, WebContentsView: View,
     ipcMain: { handle: (channel, callback) => handlers.set(channel, callback) }, Menu: { setApplicationMenu() {} },
     dialog: { showMessageBox: async (_win, opts) => { dialogs.push(opts); return options.dialog || { response: 0 }; } }, screen: { getDisplayMatching: () => null },
@@ -52,7 +52,7 @@ async function setup(t, options = {}) {
     powerSaveBlocker: { start: () => 1, isStarted: () => true, stop() {} } };
   vm.runInNewContext(fs.readFileSync(path.join(appDir, 'main.cjs'), 'utf8'), {
     require: id => id === 'electron' ? electron : id.startsWith('./') ? require(path.join(appDir, id)) : require(id),
-    __dirname: appDir, URL, console, process: { env: {} }, setInterval: () => 0, clearInterval() {}, fetch: options.fetch
+    __dirname: appDir, URL, console, process: { env: {}, platform: options.platform || 'win32' }, setInterval: () => 0, clearInterval() {}, fetch: options.fetch
   }, { filename: 'main.cjs' });
   await new Promise(resolve => setImmediate(resolve));
   const win = windows[0];
@@ -63,7 +63,7 @@ async function setup(t, options = {}) {
   // o estado vem de outro contexto (vm): JSON deixa os objetos comparáveis
   const lastState = () => JSON.parse(JSON.stringify(win.webContents.messages.filter(m => m.channel === 'dual:state').at(-1).data));
   const saved = () => JSON.parse(fs.readFileSync(path.join(dir, 'preferences.json'), 'utf8'));
-  return { win, views, command, rawCommand: handlers.get('dual:command'), event, dir, opened, dialogs, lastState, saved };
+  return { win, views, command, rawCommand: handlers.get('dual:command'), event, dir, opened, dialogs, lastState, saved, switches };
 }
 test('duas contas usam sessões persistentes diferentes e páginas sem acesso privilegiado', async t => {
   const { views } = await setup(t);
@@ -270,4 +270,10 @@ test('aviso de versão não abre endereço estranho vindo da resposta', async t 
   await new Promise(resolve => setTimeout(resolve, 20));
   await command({ action: 'updateOpen' });
   assert.deepEqual(opened, ['https://github.com/bruno220218/leveling-dual/releases']);
+});
+
+test('no Linux libera WebGL por software para VMs sem GPU', async t => {
+  const { switches } = await setup(t, { platform: 'linux' });
+  assert.ok(switches.includes('enable-unsafe-swiftshader'));
+  assert.ok(switches.includes('ignore-gpu-blocklist'));
 });
