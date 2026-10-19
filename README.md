@@ -184,6 +184,10 @@ No Windows, também dá para abrir `INICIAR.bat`. No macOS, use `INICIAR-MAC.com
       <a href="https://github.com/SkymerLight"><img src="https://github.com/SkymerLight.png?size=120" width="80" alt=""><br><b>SkymerLight</b></a><br>
       <sub>Colaborador</sub>
     </td>
+    <td align="center" width="160">
+      <a href="https://github.com/joaovili"><img src="https://github.com/joaovili.png?size=120" width="80" alt=""><br><b>joaovili</b></a><br>
+      <sub>Colaborador</sub>
+    </td>
   </tr>
 </table>
 
