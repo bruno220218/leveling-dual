@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Leveling Dual</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <div class="brand"><span class="brand-mark">L<span>Ⅱ</span></span><div><strong>LEVELING <b>DUAL</b></strong><small data-i18n="tagline">Duas contas. Uma janela.</small></div></div>
+    <nav aria-label="Visualização"><button data-mode="dual" class="selected" data-i18n="mode_dual">Lado a lado</button><button data-mode="stack" data-i18n="mode_stack">Empilhado</button><button data-mode="one" data-i18n="mode_one">Ampliar conta 1</button><button data-mode="two" data-i18n="mode_two">Ampliar conta 2</button></nav>
+    <div class="tools">
+      <span class="session-note"><i></i> <span data-i18n="sessions">Sessões independentes</span></span>
+      <span id="update" hidden><b id="update-text"></b><button id="update-get" class="selected" data-i18n="update_get">Baixar</button><button id="update-skip" data-i18n-title="update_skip" title="Ignorar esta versão">✕</button></span>
+      <span class="flags" role="group" aria-label="Idioma"><button data-lang="pt" title="Português"><img src="flags/br.svg" alt="PT"></button><button data-lang="en" title="English"><img src="flags/us.svg" alt="EN"></button><button data-lang="es" title="Español"><img src="flags/es.svg" alt="ES"></button></span>
+      <button id="pip" data-i18n-title="pip_tip" title="Janelinha flutuante por cima de tudo (Ctrl+P)"><i>⧉</i><span data-i18n="pip">Janelinha</span></button>
+      <button id="reload-both" class="icon-only" data-i18n-title="reload_both_tip" title="Recarregar as duas contas (Ctrl+Shift+R)"><i>⟳</i><span data-i18n="reload_both">Recarregar as duas</span></button>
+      <button id="center" class="icon-only" data-i18n-title="center_tip" title="Divisória no meio"><i>⇔</i><span data-i18n="center">Centralizar</span></button>
+      <button id="compact" class="icon-only" data-i18n-title="compact_tip" title="Esconder esta barra (Ctrl+B)"><i>▴</i><span data-i18n="compact">Esconder barra</span></button>
+      <button id="options"><i>⚙</i><span data-i18n="options">Opções</span></button>
+      <button id="help"><i>⌨</i><span data-i18n="help">Atalhos</span></button>
+    </div>
+  </header>
+  <section class="controls" aria-label="Controles das contas">
+    <div class="account" data-index="0"><button class="badge" data-action="customize" data-i18n-title="customize" title="Cor e ícone da conta"><span class="icon">⚔️</span><small>01</small></button><div class="identity"><input class="name" aria-label="Conta 1" maxlength="24" value="Conta 1"><span class="status">Abrindo jogo…</span></div><div class="actions"><button data-action="zoom" data-value="-1" data-i18n-aria="zoom_out" aria-label="Diminuir zoom">−</button><span class="zoom">80%</span><button data-action="zoom" data-value="1" data-i18n-aria="zoom_in" aria-label="Aumentar zoom">+</button><span class="separator"></span><button data-action="mute" class="mute">Silenciar</button><button data-action="reload" data-i18n="reload">Recarregar</button><button data-action="expand" class="expand" title="Ctrl+Shift+1">Ampliar</button><button data-action="pipOpen" class="pip-open" data-i18n-title="pip_open" title="Abrir na janelinha">⧉</button></div></div>
+    <div class="account" data-index="1"><button class="badge" data-action="customize" data-i18n-title="customize" title="Cor e ícone da conta"><span class="icon">🛡️</span><small>02</small></button><div class="identity"><input class="name" aria-label="Conta 2" maxlength="24" value="Conta 2"><span class="status">Abrindo jogo…</span></div><div class="actions"><button data-action="zoom" data-value="-1" data-i18n-aria="zoom_out" aria-label="Diminuir zoom">−</button><span class="zoom">80%</span><button data-action="zoom" data-value="1" data-i18n-aria="zoom_in" aria-label="Aumentar zoom">+</button><span class="separator"></span><button data-action="mute" class="mute">Ativar som</button><button data-action="reload" data-i18n="reload">Recarregar</button><button data-action="expand" class="expand" title="Ctrl+Shift+2">Ampliar</button><button data-action="pipOpen" class="pip-open" data-i18n-title="pip_open" title="Abrir na janelinha">⧉</button></div></div>
+    <button id="show-bar" data-i18n-title="show_bar" title="Mostrar a barra (Ctrl+B)">▾</button>
+  </section>
+  <main><div data-i18n="preparing">Preparando as duas sessões do jogo…</div></main>
+  <div id="layer"></div>
+  <footer><span>LEVELING IDLE <span class="footer-divider">/</span> <span data-i18n="foot_left">Faça login com uma conta diferente em cada lado.</span></span><span data-i18n="foot_right">Arraste a faixa entre as contas para mudar o tamanho · Atalhos: Ctrl+1 / Ctrl+2</span></footer>
+
+  <div id="help-box" class="modal" hidden>
+    <div class="card" role="dialog" aria-labelledby="help-title">
+      <h2 id="help-title" data-i18n="help_title">Atalhos</h2>
+      <p class="muted" data-i18n="help_intro"></p>
+      <table>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>1</kbd> / <kbd>2</kbd></td><td data-i18n="k_focus"></td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>Tab</kbd></td><td data-i18n="k_tab"></td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>1</kbd> / <kbd>2</kbd></td><td data-i18n="k_expand"></td></tr>
+        <tr><td><kbd>F5</kbd> / <kbd>Ctrl</kbd>+<kbd>R</kbd></td><td data-i18n="k_reload"></td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd></td><td data-i18n="k_reload_both"></td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>M</kbd></td><td data-i18n="k_mute"></td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>+</kbd> / <kbd>−</kbd> / <kbd>0</kbd></td><td data-i18n="k_zoom"></td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>P</kbd></td><td data-i18n="k_pip"></td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>B</kbd></td><td data-i18n="k_bar"></td></tr>
+        <tr><td><kbd>F11</kbd></td><td data-i18n="k_full"></td></tr>
+      </table>
+      <p class="muted" data-i18n="help_drag"></p>
+      <p class="credits"><span id="credits-line"></span><br><small data-i18n="credits_note"></small></p>
+      <button class="close selected" data-close="help-box" data-i18n="close">Fechar</button>
+    </div>
+  </div>
+
+  <div id="options-box" class="modal" hidden>
+    <div class="card wide" role="dialog" aria-labelledby="options-title">
+      <h2 id="options-title" data-i18n="opt_title">Opções</h2>
+      <h3 data-i18n="opt_language">Idioma</h3>
+      <div class="lang-list"><button data-lang="pt"><img src="flags/br.svg" alt=""> Português</button><button data-lang="en"><img src="flags/us.svg" alt=""> English</button><button data-lang="es"><img src="flags/es.svg" alt=""> Español</button></div>
+      <h3 data-i18n="opt_accounts">Cor e ícone de cada conta</h3>
+      <div class="custom-list" id="custom-list"></div>
+      <h3 data-i18n="opt_general">Geral</h3>
+      <label class="toggle"><input type="checkbox" data-pref="usage"> <span data-i18n="opt_usage"></span></label>
+      <label class="toggle"><input type="checkbox" data-pref="confirmClose"> <span data-i18n="opt_confirm"></span></label>
+      <label class="toggle"><input type="checkbox" data-pref="updates"> <span data-i18n="opt_updates"></span></label>
+      <p class="credits version" id="version-line"></p>
+      <button id="options-close" class="close selected" data-close="options-box" data-i18n="close">Fechar</button>
+    </div>
+  </div>
+  <script src="i18n.js"></script>
+  <script src="renderer.js"></script>
+</body>
+</html>

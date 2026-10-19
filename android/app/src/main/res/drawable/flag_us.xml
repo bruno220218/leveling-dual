@@ -1,0 +1,21 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="17dp" android:viewportWidth="30" android:viewportHeight="21">
+    <path android:fillColor="#FFFFFF" android:pathData="M0,0h30v21h-30z" />
+    <path android:fillColor="#B22234" android:pathData="M0,0.00h30v1.62h-30z" />
+    <path android:fillColor="#B22234" android:pathData="M0,3.23h30v1.62h-30z" />
+    <path android:fillColor="#B22234" android:pathData="M0,6.46h30v1.62h-30z" />
+    <path android:fillColor="#B22234" android:pathData="M0,9.69h30v1.62h-30z" />
+    <path android:fillColor="#B22234" android:pathData="M0,12.92h30v1.62h-30z" />
+    <path android:fillColor="#B22234" android:pathData="M0,16.15h30v1.62h-30z" />
+    <path android:fillColor="#B22234" android:pathData="M0,19.38h30v1.62h-30z" />
+    <path android:fillColor="#3C3B6E" android:pathData="M0,0h13v11.3h-13z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M2.2,2m-0.6,0a0.6,0.6 0,1 1,1.2 0a0.6,0.6 0,1 1,-1.2 0" />
+    <path android:fillColor="#FFFFFF" android:pathData="M6.5,2m-0.6,0a0.6,0.6 0,1 1,1.2 0a0.6,0.6 0,1 1,-1.2 0" />
+    <path android:fillColor="#FFFFFF" android:pathData="M10.8,2m-0.6,0a0.6,0.6 0,1 1,1.2 0a0.6,0.6 0,1 1,-1.2 0" />
+    <path android:fillColor="#FFFFFF" android:pathData="M4.3,4.4m-0.6,0a0.6,0.6 0,1 1,1.2 0a0.6,0.6 0,1 1,-1.2 0" />
+    <path android:fillColor="#FFFFFF" android:pathData="M8.6,4.4m-0.6,0a0.6,0.6 0,1 1,1.2 0a0.6,0.6 0,1 1,-1.2 0" />
+    <path android:fillColor="#FFFFFF" android:pathData="M2.2,6.8m-0.6,0a0.6,0.6 0,1 1,1.2 0a0.6,0.6 0,1 1,-1.2 0" />
+    <path android:fillColor="#FFFFFF" android:pathData="M6.5,6.8m-0.6,0a0.6,0.6 0,1 1,1.2 0a0.6,0.6 0,1 1,-1.2 0" />
+    <path android:fillColor="#FFFFFF" android:pathData="M10.8,6.8m-0.6,0a0.6,0.6 0,1 1,1.2 0a0.6,0.6 0,1 1,-1.2 0" />
+    <path android:fillColor="#FFFFFF" android:pathData="M4.3,9.2m-0.6,0a0.6,0.6 0,1 1,1.2 0a0.6,0.6 0,1 1,-1.2 0" />
+    <path android:fillColor="#FFFFFF" android:pathData="M8.6,9.2m-0.6,0a0.6,0.6 0,1 1,1.2 0a0.6,0.6 0,1 1,-1.2 0" />
+</vector>

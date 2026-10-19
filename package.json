@@ -1,0 +1,23 @@
+{
+  "name": "leveling-dual",
+  "productName": "Leveling Dual",
+  "version": "1.3.0",
+  "private": true,
+  "description": "Duas sessões independentes de Leveling Idle em uma janela.",
+  "main": "app/main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/*.test.cjs",
+    "build:win": "electron-packager . LevelingDual --platform=win32 --arch=x64 --out=dist --overwrite --icon=build/icon.ico --ignore=^/test --ignore=^/build --ignore=^/dist --ignore=^/node_modules/.cache --ignore=^/android --ignore=^/release",
+    "build:mac": "electron-packager . \"Leveling Dual\" --platform=darwin --arch=universal --out=dist --overwrite --icon=build/icon.icns --app-bundle-id=com.levelingdual.app --ignore=^/test --ignore=^/build --ignore=^/dist --ignore=^/node_modules/.cache --ignore=^/android --ignore=^/release",
+    "build:mac:arm64": "electron-packager . \"Leveling Dual\" --platform=darwin --arch=arm64 --out=dist --overwrite --icon=build/icon.icns --app-bundle-id=com.levelingdual.app --ignore=^/test --ignore=^/build --ignore=^/dist --ignore=^/node_modules/.cache --ignore=^/android --ignore=^/release",
+    "build:android": "cd android && ./gradlew assembleDebug"
+  },
+  "devDependencies": {
+    "electron": "44.9.0",
+    "@electron/packager": "20.3.0"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}

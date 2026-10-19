@@ -1,0 +1,7 @@
+:root{color-scheme:dark;font-family:Segoe UI,Arial,sans-serif;background:#0b0f17;color:#e7edf6;--c:#409eec}*{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;user-select:none}
+header{height:30px;display:flex;align-items:center;gap:8px;padding:0 4px 0 8px;background:linear-gradient(90deg,color-mix(in srgb,var(--c) 22%,#101621),#101621 70%);border-bottom:2px solid var(--c);-webkit-app-region:drag}
+.badge{display:grid;place-content:center;width:22px;height:20px;border-radius:5px;background:color-mix(in srgb,var(--c) 18%,#121a27);border:1px solid color-mix(in srgb,var(--c) 50%,#121a27);font-size:12px}
+#name{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.grow{flex:1}
+button{-webkit-app-region:no-drag;border:0;border-radius:5px;background:transparent;color:#99a9c0;cursor:pointer;font:inherit;font-size:15px;width:30px;height:24px}
+button:hover{background:#263349;color:#fff}button:focus-visible{outline:2px solid #8bcaff}
+main{height:calc(100% - 30px);display:grid;place-content:center;color:#526079;font-size:12px}

@@ -1,0 +1,111 @@
+LEVELING DUAL — DUAS CONTAS EM UMA JANELA
+Versão 1.3 — Windows 10/11 (64 bits), macOS (Intel e Apple Silicon) e Android
+
+BAIXAR
+https://github.com/bruno220218/leveling-dual/releases
+- Windows: Leveling-Dual-Windows-x64.zip
+- macOS: Leveling-Dual-macOS-universal.zip
+- Android: LevelingDual-Android-1.0.0.apk
+
+COMO ABRIR NO WINDOWS
+1. Extraia o ZIP inteiro para uma pasta.
+2. Dê dois cliques em LevelingDual.exe.
+3. Entre na primeira conta no lado esquerdo e na segunda no lado direito.
+
+COMO ABRIR NO MACOS
+1. Extraia o ZIP e arraste "Leveling Dual.app" para a pasta Aplicativos.
+2. Na primeira vez, clique com o botão direito no app e escolha Abrir.
+3. Se o macOS disser que o app está danificado ou não pode ser verificado,
+   abra o Terminal e rode:
+   xattr -dr com.apple.quarantine "/Applications/Leveling Dual.app"
+   Depois abra o app normalmente.
+O aplicativo é universal: funciona em Macs Intel e Apple Silicon.
+
+COMO ABRIR NO ANDROID
+1. Baixe o APK no celular.
+2. Permita instalar aplicativos de fontes desconhecidas para o navegador ou
+   gerenciador de arquivos usado no download.
+3. Instale e abra o Leveling Dual.
+4. O Android pode pedir a confirmação de instalação em cada atualização.
+
+COMO USAR
+- Lado a lado / Empilhado: mostra as duas contas uma ao lado da outra ou uma
+  em cima da outra.
+- Arraste a faixa entre as contas para dar mais espaço a uma delas.
+  Duplo clique na faixa (ou o botão Centralizar) volta ao meio.
+- Ampliar conta 1 / Ampliar conta 2 (ou o botão Ampliar de cada conta): dá a
+  janela inteira para a conta, sem fechar a outra sessão. Volte com Esc.
+- A borda colorida mostra qual conta recebe o teclado. Clique na conta para
+  escolher.
+- Botões − e +: ajustam o zoom de cada conta, entre 50% e 150%.
+- Silenciar / Ativar som: controla o som de cada conta. A segunda começa muda.
+- Recarregar: reabre o endereço do jogo apenas naquela conta.
+- Clique no nome Conta 1 ou Conta 2 para identificar seus personagens.
+- Esconder barra: libera o espaço da barra de cima e do rodapé.
+- Janelinha: leva a conta ativa para uma janela pequena por cima de tudo.
+- Bandeiras: trocam o idioma do aplicativo (português, inglês ou espanhol).
+- Opções: idioma, cor e ícone de cada conta, uso de CPU e memória, pergunta
+  antes de fechar e aviso de versão nova.
+- O aplicativo lembra tamanho e posição da janela, divisão, nomes, zoom, som,
+  idioma, cores e ícones.
+
+ATALHOS
+No Windows, use Ctrl. No macOS, Ctrl também funciona e, na maioria dos casos,
+Cmd faz a mesma coisa (exceto Cmd+Tab e Cmd+M, que são atalhos do sistema).
+Ctrl+1 / Ctrl+2 ........ ativa a conta 1 ou 2
+Ctrl+Tab ............... troca de conta
+Ctrl+Shift+1 / 2 ....... amplia a conta (Esc volta)
+F5 ou Ctrl+R ........... recarrega a conta ativa
+Ctrl+Shift+R ........... recarrega as duas contas
+Ctrl+M ................. som da conta ativa
+Ctrl + / − / 0 ......... zoom da conta ativa (0 = 80%)
+Ctrl+B ................. esconde ou mostra a barra
+Ctrl+P ................. janelinha flutuante (Esc volta)
+F11 .................... tela cheia (no macOS: Ctrl+Cmd+F)
+As teclas sem Ctrl continuam indo para o jogo. O botão Atalhos mostra a lista.
+
+LIMITE DE CONTAS
+O jogo permite no máximo 2 contas por pessoa. Por isso o aplicativo abre só
+duas. Usar mais contas pode resultar em banimento.
+
+SESSÕES E FUNCIONAMENTO
+O aplicativo abre https://levelingidle2d.com.br/jogar em dois navegadores
+integrados, com cookies e armazenamento separados. Os dados de sessão ficam
+na pasta de dados do aplicativo, fora da pasta extraída:
+- Windows: %APPDATA%\Leveling Dual
+- macOS: ~/Library/Application Support/Leveling Dual
+O jogo pode pedir login novamente quando sua sessão expirar.
+
+As duas sessões compartilham a conexão/IP do seu computador. Não há proxy,
+macros, cliques automáticos, sincronização de comandos ou alterações no jogo.
+O teclado controla somente a conta que você clicar. Links para fora do jogo
+abrem no seu navegador padrão.
+
+O aplicativo desativa a redução opcional de timers em segundo plano e pede ao
+sistema que evite a suspensão automática enquanto estiver aberto. Isso não
+impede suspensão manual, hibernação, reinicialização, queda da conexão ou regras
+do próprio jogo. Não é um serviço em nuvem. Fechar o aplicativo encerra suas
+páginas; o progresso offline continua apenas conforme as regras do jogo.
+
+"Página aberta" confirma apenas o carregamento da página, não a conexão da
+conta com o servidor. Verifique a atividade dentro do próprio jogo.
+
+PARA QUEM FOR EDITAR O CÓDIGO
+Tecnologia: Electron / WebContentsView (desktop) e WebView nativo (Android).
+Cada conta usa uma partition persistente exclusiva. O site remoto não recebe
+preload nem acesso ao Node.js. Sandbox e segurança web permanecem habilitados.
+O preload existe somente na barra local de controles.
+
+Requisitos: Node.js 22.12 ou mais novo.
+npm test ............ testes das duas sessões e da interface
+npm start ........... abre a versão de desenvolvimento
+npm run build:win ... gera a pasta Windows
+npm run build:mac ... gera o app universal (Intel + Apple Silicon)
+npm run build:android  gera um APK de teste (precisa do Android SDK)
+
+A versão Android fica na pasta android/ e usa Gradle. Para publicar o APK de
+release, assine com a mesma chave das versões anteriores.
+
+CRÉDITOS
+Criado por bruno220218. Colaborador: SkymerLight.
+Aplicativo independente, sem vínculo oficial com o Leveling Idle.
