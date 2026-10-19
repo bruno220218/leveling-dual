@@ -9,6 +9,7 @@
 [![Baixar](https://img.shields.io/github/v/release/bruno220218/leveling-dual?include_prereleases&label=baixar&style=for-the-badge&color=409eec)](https://github.com/bruno220218/leveling-dual/releases)
 ![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-1d3a53?style=for-the-badge&logo=windows&logoColor=white)
 ![macOS](https://img.shields.io/badge/macOS-Intel%20%7C%20Apple%20Silicon-1d3a53?style=for-the-badge&logo=apple&logoColor=white)
+![Linux](https://img.shields.io/badge/Linux-Ubuntu%2022.04%2B-1d3a53?style=for-the-badge&logo=linux&logoColor=white)
 ![Android](https://img.shields.io/badge/Android-8%2B-1d3a53?style=for-the-badge&logo=android&logoColor=white)
 [![Downloads](https://img.shields.io/github/downloads/bruno220218/leveling-dual/total?style=for-the-badge&color=8b7bff&label=downloads)](https://github.com/bruno220218/leveling-dual/releases)
 
@@ -22,10 +23,10 @@
 
 ## ⬇️ Baixar
 
-| Windows | macOS | Android |
-|:---:|:---:|:---:|
-| <a href="https://github.com/bruno220218/leveling-dual/releases/latest/download/Leveling-Dual-Windows-x64.zip"><img src="https://img.shields.io/badge/Windows-baixar%20.zip-409eec?style=for-the-badge&logo=windows&logoColor=white" alt="Baixar para Windows"></a> | <a href="https://github.com/bruno220218/leveling-dual/releases/latest/download/Leveling-Dual-macOS-universal.zip"><img src="https://img.shields.io/badge/macOS-baixar%20.zip-409eec?style=for-the-badge&logo=apple&logoColor=white" alt="Baixar para macOS"></a> | <a href="https://github.com/bruno220218/leveling-dual/releases/latest/download/LevelingDual-Android-1.0.0.apk"><img src="https://img.shields.io/badge/Android-baixar%20.apk-409eec?style=for-the-badge&logo=android&logoColor=white" alt="Baixar para Android"></a> |
-| Windows 10/11 · 64 bits | Intel e Apple Silicon | Android 8 ou mais novo |
+| Windows | macOS | Linux | Android |
+|:---:|:---:|:---:|:---:|
+| <a href="https://github.com/bruno220218/leveling-dual/releases/latest/download/Leveling-Dual-Windows-x64.zip"><img src="https://img.shields.io/badge/Windows-baixar%20.zip-409eec?style=for-the-badge&logo=windows&logoColor=white" alt="Baixar para Windows"></a> | <a href="https://github.com/bruno220218/leveling-dual/releases/latest/download/Leveling-Dual-macOS-universal.zip"><img src="https://img.shields.io/badge/macOS-baixar%20.zip-409eec?style=for-the-badge&logo=apple&logoColor=white" alt="Baixar para macOS"></a> | <a href="https://github.com/bruno220218/leveling-dual/releases/latest/download/Leveling-Dual-Linux-x64.deb"><img src="https://img.shields.io/badge/Linux-baixar%20.deb-409eec?style=for-the-badge&logo=linux&logoColor=white" alt="Baixar para Linux"></a><br><sub><a href="https://github.com/bruno220218/leveling-dual/releases/latest/download/Leveling-Dual-Linux-x64.tar.gz">ou .tar.gz</a></sub> | <a href="https://github.com/bruno220218/leveling-dual/releases/latest/download/LevelingDual-Android-1.0.0.apk"><img src="https://img.shields.io/badge/Android-baixar%20.apk-409eec?style=for-the-badge&logo=android&logoColor=white" alt="Baixar para Android"></a> |
+| Windows 10/11 · 64 bits | Intel e Apple Silicon | Ubuntu 22.04+ · x64 | Android 8 ou mais novo |
 
 Também dá para escolher qualquer versão na página de [**Releases**](https://github.com/bruno220218/leveling-dual/releases).
 
@@ -91,6 +92,20 @@ No botão **Opções** (ou clicando no ícone da conta) você escolhe o idioma, 
 
 O aplicativo é **universal**: funciona em Macs Intel e Apple Silicon. Ele não tem assinatura paga da Apple, por isso o macOS mostra esse aviso na primeira abertura.
 
+### Linux (Ubuntu/Debian)
+
+1. Baixe o **`Leveling-Dual-Linux-x64.deb`**.
+2. Instale pelo terminal:
+   ```bash
+   sudo apt install ./Leveling-Dual-Linux-x64.deb
+   ```
+3. Abra **Leveling Dual** no menu de aplicativos ou rode:
+   ```bash
+   leveling-dual
+   ```
+
+Em outras distribuições, baixe o **`.tar.gz`**, extraia e execute o arquivo `leveling-dual`. O pacote `.deb` instala em `/opt/leveling-dual` e já configura a permissão do sandbox.
+
 ### Android
 
 1. Baixe o **`LevelingDual-Android-1.0.0.apk`** no celular.
@@ -102,7 +117,7 @@ Quem já usava uma versão anterior continua com as mesmas contas logadas.
 
 ## ⌨️ Atalhos
 
-No Windows, use <kbd>Ctrl</kbd>. No macOS, <kbd>Ctrl</kbd> também funciona e, na maioria dos casos, <kbd>⌘ Cmd</kbd> faz a mesma coisa — exceto <kbd>⌘</kbd>+<kbd>Tab</kbd> e <kbd>⌘</kbd>+<kbd>M</kbd>, que são atalhos do sistema.
+No Windows e no Linux, use <kbd>Ctrl</kbd>. No macOS, <kbd>Ctrl</kbd> também funciona e, na maioria dos casos, <kbd>⌘ Cmd</kbd> faz a mesma coisa — exceto <kbd>⌘</kbd>+<kbd>Tab</kbd> e <kbd>⌘</kbd>+<kbd>M</kbd>, que são atalhos do sistema.
 
 | Tecla | O que faz |
 |---|---|
@@ -135,6 +150,7 @@ app/      aplicativo desktop (Electron)
 build/    ícones do Windows e do macOS
 test/     testes do desktop
 android/  aplicativo Android (Java + WebView nativo)
+scripts/  empacotamento do .deb/.tar.gz do Linux
 docs/     imagens usadas no README
 ```
 
@@ -146,10 +162,12 @@ npm test             # testes das sessões e da interface
 npm start            # versão de desenvolvimento
 npm run build:win    # pasta Windows (x64)
 npm run build:mac    # app universal (Intel + Apple Silicon)
+npm run build:linux  # pasta Linux (x64)
+npm run package:linux # .tar.gz e .deb para Ubuntu/Debian
 npm run build:android # APK de teste (precisa do Android SDK)
 ```
 
-No Windows, também dá para abrir `INICIAR.bat`. No macOS, use `INICIAR-MAC.command` ou `npm start`.
+No Windows, também dá para abrir `INICIAR.bat`. No macOS, use `INICIAR-MAC.command`. No Linux, use `npm start` ou o binário `leveling-dual` depois de instalar o pacote.
 
 ## 👥 Créditos
 

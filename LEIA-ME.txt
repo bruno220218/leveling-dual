@@ -1,10 +1,11 @@
 LEVELING DUAL — DUAS CONTAS EM UMA JANELA
-Versão 1.3 — Windows 10/11 (64 bits), macOS (Intel e Apple Silicon) e Android
+Versão 1.4 — Windows 10/11 (64 bits), macOS (Intel e Apple Silicon), Linux e Android
 
 BAIXAR
 https://github.com/bruno220218/leveling-dual/releases
 - Windows: Leveling-Dual-Windows-x64.zip
 - macOS: Leveling-Dual-macOS-universal.zip
+- Linux: Leveling-Dual-Linux-x64.deb (Ubuntu/Debian) ou Leveling-Dual-Linux-x64.tar.gz
 - Android: LevelingDual-Android-1.0.0.apk
 
 COMO ABRIR NO WINDOWS
@@ -20,6 +21,14 @@ COMO ABRIR NO MACOS
    xattr -dr com.apple.quarantine "/Applications/Leveling Dual.app"
    Depois abra o app normalmente.
 O aplicativo é universal: funciona em Macs Intel e Apple Silicon.
+
+COMO ABRIR NO LINUX (UBUNTU/DEBIAN)
+1. Baixe o arquivo Leveling-Dual-Linux-x64.deb.
+2. Instale com: sudo apt install ./Leveling-Dual-Linux-x64.deb
+3. Abra "Leveling Dual" no menu de aplicativos ou rode: leveling-dual
+Em outras distribuições, extraia o .tar.gz e execute o arquivo leveling-dual.
+Se aparecer erro de sandbox, verifique se /opt/leveling-dual/chrome-sandbox
+está com permissão 4755 (o pacote .deb já configura isso).
 
 COMO ABRIR NO ANDROID
 1. Baixe o APK no celular.
@@ -74,6 +83,7 @@ integrados, com cookies e armazenamento separados. Os dados de sessão ficam
 na pasta de dados do aplicativo, fora da pasta extraída:
 - Windows: %APPDATA%\Leveling Dual
 - macOS: ~/Library/Application Support/Leveling Dual
+- Linux: ~/.config/Leveling Dual
 O jogo pode pedir login novamente quando sua sessão expirar.
 
 As duas sessões compartilham a conexão/IP do seu computador. Não há proxy,
@@ -96,11 +106,13 @@ Cada conta usa uma partition persistente exclusiva. O site remoto não recebe
 preload nem acesso ao Node.js. Sandbox e segurança web permanecem habilitados.
 O preload existe somente na barra local de controles.
 
-Requisitos: Node.js 22.12 ou mais novo.
+Requisitos: Node.js 22.12 ou mais novo. Para o .deb, o script usa ar e tar (macOS ou Linux).
 npm test ............ testes das duas sessões e da interface
 npm start ........... abre a versão de desenvolvimento
 npm run build:win ... gera a pasta Windows
 npm run build:mac ... gera o app universal (Intel + Apple Silicon)
+npm run build:linux ... gera a pasta Linux (x64)
+npm run package:linux  gera o .tar.gz e o .deb para Ubuntu/Debian
 npm run build:android  gera um APK de teste (precisa do Android SDK)
 
 A versão Android fica na pasta android/ e usa Gradle. Para publicar o APK de
