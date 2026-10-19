@@ -30,7 +30,7 @@
 | 🎯 **Conta ativa visível** | A borda colorida mostra qual conta recebe o teclado. |
 | 🎨 **Cor e ícone por conta** | Escolha uma cor e um ícone para cada conta e nunca mais confunda os personagens. |
 | 🌎 **Três idiomas** | Português, inglês e espanhol, trocando pelas bandeirinhas da barra. |
-| 📌 **Sempre no topo** | Mantém a janela por cima das outras para acompanhar enquanto faz outra coisa. |
+| ⧉ **Janelinha flutuante** | Leva uma conta para uma janela pequena por cima de tudo, para acompanhar enquanto usa outro programa. A outra conta continua rodando. |
 | ⟳ **Recarregar as duas** | Reabre o jogo nas duas contas de uma vez. |
 | 📊 **Uso de CPU e memória** | Mostra quanto cada conta está consumindo. Fica desligado até você ligar nas Opções. |
 | 🔔 **Aviso de versão nova** | Ao abrir, avisa quando sair uma versão nova aqui nas Releases. Não baixa nada sozinho. |
@@ -41,13 +41,21 @@
 > [!IMPORTANT]
 > O jogo permite **no máximo 2 contas por pessoa**, então o aplicativo abre só duas. Usar mais contas pode dar banimento.
 
+## ⧉ Janelinha flutuante
+
+<div align="center">
+<img src="docs/janelinha.png" alt="Janelinha flutuante com uma conta por cima das outras janelas" width="420">
+</div>
+
+O botão **Janelinha** (ou <kbd>Ctrl</kbd> + <kbd>P</kbd>) leva a conta ativa para uma janela pequena que fica por cima de tudo. A janela grande é minimizada e a outra conta continua rodando nela. Na faixa de cima: **⇄** troca a conta e **⤢** (ou <kbd>Esc</kbd>) volta para a janela grande.
+
 ## ⚙️ Opções
 
 <div align="center">
 <img src="docs/opcoes.png" alt="Janela de opções: idioma, cor e ícone de cada conta e preferências gerais" width="760">
 </div>
 
-No botão **Opções** (ou clicando no ícone da conta) você escolhe o idioma, a cor e o ícone de cada conta e liga ou desliga: sempre no topo, uso de CPU e memória, pergunta antes de fechar e aviso de versão nova.
+No botão **Opções** (ou clicando no ícone da conta) você escolhe o idioma, a cor e o ícone de cada conta e liga ou desliga: uso de CPU e memória, pergunta antes de fechar e aviso de versão nova.
 
 ## 📥 Como usar
 
@@ -72,7 +80,7 @@ Quem já usava uma versão anterior continua com as mesmas contas logadas.
 | <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>R</kbd> | Recarrega as duas contas |
 | <kbd>Ctrl</kbd> + <kbd>M</kbd> | Liga ou desliga o som da conta ativa |
 | <kbd>Ctrl</kbd> + <kbd>+</kbd> / <kbd>−</kbd> / <kbd>0</kbd> | Zoom da conta ativa |
-| <kbd>Ctrl</kbd> + <kbd>T</kbd> | Sempre no topo |
+| <kbd>Ctrl</kbd> + <kbd>P</kbd> | Janelinha flutuante (<kbd>Esc</kbd> volta) |
 | <kbd>Ctrl</kbd> + <kbd>B</kbd> | Esconde ou mostra a barra |
 | <kbd>F11</kbd> | Tela cheia |
 
