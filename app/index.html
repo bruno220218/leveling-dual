@@ -65,6 +65,32 @@
       <label class="toggle"><input type="checkbox" data-pref="usage"> <span data-i18n="opt_usage"></span></label>
       <label class="toggle"><input type="checkbox" data-pref="confirmClose"> <span data-i18n="opt_confirm"></span></label>
       <label class="toggle"><input type="checkbox" data-pref="updates"> <span data-i18n="opt_updates"></span></label>
+      <h3 data-i18n="opt_perf">Desempenho</h3>
+      <label class="toggle"><input type="checkbox" data-pref="perfEnabled"> <span data-i18n="opt_perf_enabled"></span></label>
+      <label class="toggle"><span data-i18n="opt_fg_fps"></span> <select id="perf-fg"><option value="60">60</option><option value="30">30</option></select></label>
+      <label class="toggle"><span data-i18n="opt_bg_fps"></span> <select id="perf-bg"><option value="1">1</option><option value="2">2</option><option value="5">5</option><option value="10">10</option><option value="0">0</option></select></label>
+      <label class="toggle"><input type="checkbox" data-pref="perfMuteBg"> <span data-i18n="opt_mute_bg"></span></label>
+      <label class="toggle"><input type="checkbox" data-pref="perfPauseHidden"> <span data-i18n="opt_pause_hidden"></span></label>
+      <p class="muted" data-i18n="opt_pause_hidden_hint"></p>
+      <h3 data-i18n="opt_credentials">Login automático</h3>
+      <p class="muted" data-i18n="opt_credentials_hint"></p>
+      <div class="cred-list">
+        <div class="cred">
+          <div class="cred-title"><b id="cred-name-0">Conta 1</b><span class="cred-status" id="cred-status-0"></span></div>
+          <label class="cred-field"><span data-i18n="cred_user"></span><input id="cred-user-0" maxlength="16" pattern="[a-z0-9_-]{3,16}" autocomplete="off" spellcheck="false"></label>
+          <label class="cred-field"><span data-i18n="cred_pass"></span><input id="cred-pass-0" type="password" maxlength="128" autocomplete="new-password"></label>
+          <label class="toggle"><input type="checkbox" id="cred-auto-0" checked> <span data-i18n="cred_auto"></span></label>
+          <div class="cred-actions"><button id="cred-save-0" class="selected" data-i18n="cred_save"></button><button id="cred-clear-0" data-i18n="cred_clear"></button></div>
+        </div>
+        <div class="cred">
+          <div class="cred-title"><b id="cred-name-1">Conta 2</b><span class="cred-status" id="cred-status-1"></span></div>
+          <label class="cred-field"><span data-i18n="cred_user"></span><input id="cred-user-1" maxlength="16" pattern="[a-z0-9_-]{3,16}" autocomplete="off" spellcheck="false"></label>
+          <label class="cred-field"><span data-i18n="cred_pass"></span><input id="cred-pass-1" type="password" maxlength="128" autocomplete="new-password"></label>
+          <label class="toggle"><input type="checkbox" id="cred-auto-1" checked> <span data-i18n="cred_auto"></span></label>
+          <div class="cred-actions"><button id="cred-save-1" class="selected" data-i18n="cred_save"></button><button id="cred-clear-1" data-i18n="cred_clear"></button></div>
+        </div>
+      </div>
+      <p class="muted" data-i18n="cred_warning"></p>
       <p class="credits version" id="version-line"></p>
       <button id="options-close" class="close selected" data-close="options-box" data-i18n="close">Fechar</button>
     </div>

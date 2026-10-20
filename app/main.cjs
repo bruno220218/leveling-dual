@@ -1,9 +1,11 @@
 'use strict';
-const { app, BrowserWindow, WebContentsView, ipcMain, Menu, dialog, powerSaveBlocker, shell, screen } = require('electron');
+const { app, BrowserWindow, WebContentsView, ipcMain, Menu, dialog, powerSaveBlocker, powerMonitor, safeStorage, shell, screen } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const { pathToFileURL } = require('node:url');
 const { getLayout, ratioFromPointer, isGameUrl, isWebUrl } = require('./layout.cjs');
+const { LIMITER_SOURCE, normalizeFps, fpsForView, FPS_FOREGROUND, FPS_BACKGROUND } = require('./perf.cjs');
+const { buildCredScript, buildCaptureScript } = require('./creds.cjs');
 const I18N = require('./i18n.js');
 
 const IS_MAC = process.platform === 'darwin';
@@ -24,10 +26,29 @@ app.setName('Leveling Dual');
 // Modo de teste (variável LD_SHOT): usa uma pasta temporária, salva prints da janela e fecha.
 const SHOT = process.env.LD_SHOT || '';
 if (SHOT) app.setPath('userData', path.join(SHOT, 'userdata'));
+const PERF_DEFAULTS = { enabled: true, fgFps: 60, bgFps: 1, muteBg: true, pauseHidden: false };
+// A opção "pausar quando escondido" muda switches do Chromium, então é lida
+// antes do app ficar pronto. As demais opções são lidas em loadPrefs().
+function readStartupPerf() {
+  const out = { ...PERF_DEFAULTS };
+  try {
+    const saved = JSON.parse(fs.readFileSync(path.join(app.getPath('userData'), 'preferences.json'), 'utf8'));
+    if (typeof saved?.perf?.pauseHidden === 'boolean') out.pauseHidden = saved.perf.pauseHidden;
+    if (typeof saved?.perf?.enabled === 'boolean') out.enabled = saved.perf.enabled;
+  } catch { /* Primeira execução. */ }
+  if (process.env.LD_PAUSE_HIDDEN !== undefined) out.pauseHidden = process.env.LD_PAUSE_HIDDEN === '1';
+  if (process.env.LD_PERF !== undefined) out.enabled = process.env.LD_PERF !== '0';
+  return out;
+}
+const STARTUP_PERF = readStartupPerf();
 // Disables Chromium's optional timer throttling; never changes game logic.
 app.commandLine.appendSwitch('disable-background-timer-throttling');
-app.commandLine.appendSwitch('disable-renderer-backgrounding');
-app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
+// A Fase 0b deixa o Chromium esconder/depriorizar a página quando minimizada.
+// Fora dela, os switches mantêm o loop vivo para o limitador de FPS controlar.
+if (!(STARTUP_PERF.enabled && STARTUP_PERF.pauseHidden)) {
+  app.commandLine.appendSwitch('disable-renderer-backgrounding');
+  app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
+}
 // Muitas VMs e servidores Linux bloqueiam WebGL por falta de GPU; libera o fallback por software.
 if (IS_LINUX) {
   app.commandLine.appendSwitch('enable-unsafe-swiftshader');
@@ -44,11 +65,21 @@ let current = null;   // último layout calculado
 let update = null;    // versão nova encontrada nas releases
 let pip = null;       // janelinha flutuante: { win, index } (a conta mostrada sai da janela grande e vai para ela)
 let usageTimer;
+let perfTimer;
+let locked = false;   // tela bloqueada/suspensa: tudo em FPS de segundo plano
+const lastFps = [null, null];
+const lastMuted = [null, null];
+let credentials = [null, null];
+let credAvailable = false;
+let credBackend = '';
+const credWatch = [null, null];
+const credBusy = [false, false];
 // O jogo permite no máximo 2 contas por pessoa: o aplicativo nunca abre uma terceira.
 let prefs = { names: ['Conta 1', 'Conta 2'], zoom: [0.8, 0.8], muted: [false, true],
   colors: [COLORS[0], COLORS[1]], icons: [ICONS[0], ICONS[1]],
   mode: 'dual', split: 'dual', ratio: { x: 0.5, y: 0.5 }, compact: false, bounds: null, maximized: false,
-  lang: null, usage: false, confirmClose: true, updates: true, skipVersion: '', pipBounds: null };
+  lang: null, usage: false, confirmClose: true, updates: true, skipVersion: '', pipBounds: null,
+  perf: { ...PERF_DEFAULTS } };
 const states = [{ status: 'st_opening' }, { status: 'st_opening' }];
 const t = key => (I18N[prefs.lang] || I18N.pt)[key] || I18N.pt[key] || key;
 function prefsFile() { return path.join(app.getPath('userData'), 'preferences.json'); }
@@ -72,7 +103,17 @@ function loadPrefs() {
     const okBounds = b => b && ['x', 'y', 'width', 'height'].every(k => Number.isFinite(b[k]));
     if (okBounds(saved.bounds)) prefs.bounds = saved.bounds;
     if (okBounds(saved.pipBounds)) prefs.pipBounds = saved.pipBounds;
+    if (saved.perf && typeof saved.perf === 'object') {
+      if (typeof saved.perf.enabled === 'boolean') prefs.perf.enabled = saved.perf.enabled;
+      if (typeof saved.perf.muteBg === 'boolean') prefs.perf.muteBg = saved.perf.muteBg;
+      if (typeof saved.perf.pauseHidden === 'boolean') prefs.perf.pauseHidden = saved.perf.pauseHidden;
+      prefs.perf.fgFps = normalizeFps(saved.perf.fgFps, PERF_DEFAULTS.fgFps, FPS_FOREGROUND);
+      prefs.perf.bgFps = normalizeFps(saved.perf.bgFps, PERF_DEFAULTS.bgFps, FPS_BACKGROUND);
+    }
   } catch { /* First run uses defaults. */ }
+  if (process.env.LD_PERF !== undefined) prefs.perf.enabled = process.env.LD_PERF !== '0';
+  if (process.env.LD_FG_FPS !== undefined) prefs.perf.fgFps = normalizeFps(process.env.LD_FG_FPS, PERF_DEFAULTS.fgFps, FPS_FOREGROUND);
+  if (process.env.LD_BG_FPS !== undefined) prefs.perf.bgFps = normalizeFps(process.env.LD_BG_FPS, PERF_DEFAULTS.bgFps, FPS_BACKGROUND);
   if (!prefs.lang) {
     const locale = String(app.getLocale?.() || 'pt').toLowerCase();
     prefs.lang = locale.startsWith('es') ? 'es' : locale.startsWith('en') ? 'en' : 'pt';
@@ -84,15 +125,157 @@ function savePrefs() {
     fs.renameSync(prefsFile() + '.tmp', prefsFile());
   } catch { /* The game sessions remain managed independently by Chromium. */ }
 }
+function credFile() { return path.join(app.getPath('userData'), 'credentials.bin'); }
+// Credenciais ficam criptografadas pelo safeStorage (Keychain/DPAPI/libsecret).
+// Nunca são gravadas em texto puro nem enviadas de volta para a interface.
+function initCredentials() {
+  credAvailable = false;
+  credBackend = '';
+  try {
+    credAvailable = Boolean(safeStorage?.isEncryptionAvailable?.());
+    if (credAvailable && process.platform === 'linux') {
+      const backend = String(safeStorage.getSelectedStorageBackend?.() || '');
+      if (!backend || backend === 'basic_text') credAvailable = false;
+      else credBackend = backend;
+    } else if (credAvailable) {
+      credBackend = process.platform === 'darwin' ? 'keychain' : process.platform === 'win32' ? 'dpapi' : 'secret-service';
+    }
+  } catch { credAvailable = false; }
+  if (!credAvailable) { credentials = [null, null]; return; }
+  try {
+    const raw = fs.readFileSync(credFile());
+    const data = JSON.parse(safeStorage.decryptString(raw));
+    for (let i = 0; i < 2; i++) {
+      const item = data?.[i];
+      if (item && typeof item.user === 'string' && typeof item.pass === 'string' && item.user && item.pass) {
+        credentials[i] = { user: item.user.slice(0, 16), pass: item.pass.slice(0, 128), auto: item.auto !== false };
+      }
+    }
+  } catch { /* Primeira vez ou chave antiga: o usuário digita de novo. */ }
+}
+function saveCredentials() {
+  if (!credAvailable) return false;
+  try {
+    if (!credentials[0] && !credentials[1]) {
+      fs.rmSync(credFile(), { force: true });
+      return true;
+    }
+    const payload = JSON.stringify({ 0: credentials[0], 1: credentials[1] });
+    const encrypted = safeStorage.encryptString(payload);
+    const tmp = credFile() + '.tmp';
+    fs.writeFileSync(tmp, encrypted, { mode: 0o600 });
+    fs.renameSync(tmp, credFile());
+    try { fs.chmodSync(credFile(), 0o600); } catch { /* Windows não usa chmod. */ }
+    return true;
+  } catch { return false; }
+}
+function applyCredentials(i) {
+  const cred = credentials[i];
+  if (!cred || !cred.user || !cred.pass) return;
+  const wc = views[i]?.webContents;
+  if (!wc || wc.isDestroyed?.()) return;
+  Promise.resolve(wc.executeJavaScript(buildCredScript(cred))).catch(() => {});
+}
+function installCapture(wc) {
+  if (!wc || wc.isDestroyed?.()) return;
+  Promise.resolve(wc.executeJavaScript(buildCaptureScript())).catch(() => {});
+}
+function handleCapturedCredentials(i, capture) {
+  const user = String(capture.user || '').trim().slice(0, 16);
+  const pass = String(capture.pass || '').slice(0, 128);
+  if (!credAvailable || !/^[a-z0-9_-]{3,16}$/.test(user) || !pass) return;
+  if (!main || main.isDestroyed() || !main.isFocused()) return;
+  const existing = credentials[i];
+  if (existing && existing.user === user && existing.pass === pass) return;
+  const name = prefs.names[i] || `Conta ${i + 1}`;
+  const update = Boolean(existing);
+  dialog.showMessageBox(main, {
+    type: 'question',
+    title: update ? t('cred_prompt_update_title') : t('cred_prompt_title'),
+    message: `${name} (${user})`,
+    detail: `${update ? t('cred_prompt_update_message') : t('cred_prompt_message')}\n\n${t('cred_prompt_detail')}`,
+    buttons: [t('cred_prompt_save'), t('cred_prompt_not_now')],
+    defaultId: 0, cancelId: 1, noLink: true,
+    checkboxLabel: t('cred_auto'), checkboxChecked: existing ? existing.auto !== false : true
+  }).then(({ response, checkboxChecked }) => {
+    if (response !== 0 || !main || main.isDestroyed()) return;
+    const previous = credentials[i];
+    credentials[i] = { user, pass, auto: checkboxChecked };
+    if (!saveCredentials()) credentials[i] = previous;
+    sendState();
+  }).catch(() => {});
+}
+function startCredWatch(i) {
+  if (credWatch[i]) return;
+  credWatch[i] = setInterval(async () => {
+    if (credBusy[i]) return;
+    credBusy[i] = true;
+    try {
+      const wc = views[i]?.webContents;
+      if (!wc || wc.isDestroyed?.()) return;
+      const capture = await wc.executeJavaScript('window.__LD_CRED_CAPTURE__ || null');
+      if (!capture || !capture.user || !capture.pass) return;
+      if (!credAvailable) { await wc.executeJavaScript('window.__LD_CRED_CAPTURE__ = null'); return; }
+      // Se a janela perdeu o foco, mantém a captura para perguntar quando voltar.
+      if (!main || main.isDestroyed() || !main.isFocused()) return;
+      await wc.executeJavaScript('window.__LD_CRED_CAPTURE__ = null');
+      handleCapturedCredentials(i, capture);
+    } catch { /* página recarregando */ }
+    finally { credBusy[i] = false; }
+  }, 1000);
+}
 function sendState() {
   if (!main || main.isDestroyed()) return;
   const state = { mode: prefs.mode, compact: prefs.compact, focused, dragging, layout: current,
     lang: prefs.lang, pip: pip ? pip.index : -1, usage: prefs.usage, confirmClose: prefs.confirmClose, updates: prefs.updates,
+    perfEnabled: prefs.perf.enabled, perfMuteBg: prefs.perf.muteBg, perfPauseHidden: prefs.perf.pauseHidden,
+    perfFg: prefs.perf.fgFps, perfBg: prefs.perf.bgFps, perfPauseHiddenActive: STARTUP_PERF.pauseHidden,
+    credAvailable, credBackend,
+    credentials: credentials.map(c => c ? { has: true, user: c.user, auto: c.auto !== false } : { has: false, user: '', auto: true }),
     update, version: app.getVersion?.() || '', choices: { colors: COLORS, icons: ICONS },
     accounts: states.map((s, i) => ({ status: s.status, usage: prefs.usage ? s.usage || null : null, name: prefs.names[i],
       zoom: Math.round(prefs.zoom[i] * 100), muted: prefs.muted[i], color: prefs.colors[i], icon: prefs.icons[i] })) };
   main.webContents.send('dual:state', state);
   if (pip && !pip.win.isDestroyed()) pip.win.webContents.send('dual:state', state);
+}
+function isViewVisible(i) {
+  if (pip && pip.index === i) return true;
+  return Boolean(current?.views?.[i]) && !dragging && !overlay;
+}
+function setViewFps(i, fps) {
+  const wc = views[i]?.webContents;
+  if (!wc || wc.isDestroyed?.()) return;
+  if (lastFps[i] === fps) return;
+  lastFps[i] = fps;
+  Promise.resolve(wc.executeJavaScript(`window.__LD_SET_FPS ? window.__LD_SET_FPS(${fps}) : (window.__LD_FPS = ${fps})`))
+    .catch(() => { lastFps[i] = null; });
+}
+function setViewMuted(i, muted) {
+  const wc = views[i]?.webContents;
+  if (!wc || wc.isDestroyed?.()) return;
+  if (lastMuted[i] === muted) return;
+  lastMuted[i] = muted;
+  wc.setAudioMuted(muted);
+}
+// Aplica o FPS/mudo de cada conta conforme a janela que a contém e o layout.
+function applyPerf() {
+  if (!main || main.isDestroyed()) return;
+  const perf = prefs.perf;
+  for (let i = 0; i < views.length; i++) {
+    const host = pip && pip.index === i ? pip.win : main;
+    if (!host || host.isDestroyed()) continue;
+    const minimized = host.isMinimized();
+    const hidden = !host.isVisible();
+    const hostFocused = Boolean(host.isFocused() && !minimized && !hidden && !locked);
+    const foreground = fpsForView({ enabled: perf.enabled, foreground: perf.fgFps, background: perf.bgFps,
+      focused: hostFocused, visible: isViewVisible(i), minimized, locked, hidden });
+    setViewFps(i, foreground);
+    setViewMuted(i, prefs.muted[i] || (foreground !== perf.fgFps && perf.muteBg));
+  }
+}
+function schedulePerf(delay = 0) {
+  clearTimeout(perfTimer);
+  perfTimer = setTimeout(() => { perfTimer = null; applyPerf(); }, delay);
 }
 function layout() {
   if (!main || main.isDestroyed()) return;
@@ -103,6 +286,7 @@ function layout() {
     if (rect) views[i].setBounds(rect);
     views[i].setVisible(Boolean(rect) && !dragging && !overlay);
   });
+  applyPerf();
   sendState();
 }
 function setMode(value) {
@@ -117,6 +301,7 @@ function focusAccount(i) {
   if (!views[i]) return;
   focused = i;
   views[i].webContents.focus();
+  schedulePerf(0);
   sendState();
 }
 function setZoom(i, delta) {
@@ -126,6 +311,7 @@ function setZoom(i, delta) {
 function toggleMute(i) {
   prefs.muted[i] = !prefs.muted[i];
   views[i].webContents.setAudioMuted(prefs.muted[i]);
+  lastMuted[i] = prefs.muted[i];
 }
 // Janelinha flutuante: a conta escolhida vai para uma janela pequena por cima de tudo e a janela
 // grande é minimizada. A outra conta continua rodando nela. A página não recarrega ao trocar de janela.
@@ -156,6 +342,9 @@ function openPip(i = focused) {
   const remember = () => { if (!win.isDestroyed()) { prefs.pipBounds = win.getBounds(); savePrefs(); } };
   win.on('resized', remember); win.on('moved', remember);
   win.on('closed', () => { if (pip && pip.win === win) closePip(); });
+  for (const event of ['focus', 'blur', 'minimize', 'restore', 'show', 'hide']) {
+    win.on(event, () => schedulePerf(event === 'blur' ? 1500 : 0));
+  }
   focusAccount(i);
   main.minimize();
   layout();
@@ -188,12 +377,15 @@ function swapPip() {
   layout();
 }
 function togglePip() { if (pip) closePip(); else openPip(); }
-// Uso de CPU e memória de cada conta (só quando a opção está ligada).
-function readUsage() {
+// Uso de CPU, memória e FPS real de cada conta (só quando a opção está ligada).
+async function readUsage() {
   const metrics = app.getAppMetrics?.() || [];
+  const fps = await Promise.all(views.map(v => Promise.resolve(
+    v.webContents.executeJavaScript('window.__LD_FPS_ACTUAL || 0')).catch(() => 0)));
   views.forEach((v, i) => {
     const m = metrics.find(p => p.pid === v.webContents.getOSProcessId?.());
-    states[i].usage = m ? { cpu: Math.round(m.cpu?.percentCPUUsage || 0), mem: Math.round((m.memory?.workingSetSize || 0) / 1024) } : null;
+    const base = m ? { cpu: Math.round(m.cpu?.percentCPUUsage || 0), mem: Math.round((m.memory?.workingSetSize || 0) / 1024) } : { cpu: 0, mem: 0 };
+    states[i].usage = { ...base, fps: Math.round(Number(fps[i]) || 0) };
   });
   sendState();
 }
@@ -231,6 +423,12 @@ function guardNavigation(wc) {
   wc.on('will-navigate', (event, url) => { if (!isGameUrl(url)) event.preventDefault(); });
   wc.on('will-redirect', (event, url) => { if (!isGameUrl(url)) event.preventDefault(); });
   wc.on('will-attach-webview', event => event.preventDefault());
+}
+// Instala o limitador na página já carregada. O Phaser chama
+// window.requestAnimationFrame a cada frame, então a injeção tardia vale.
+function installLimiterNow(wc) {
+  if (!wc || wc.isDestroyed?.()) return Promise.resolve();
+  return Promise.resolve(wc.executeJavaScript(LIMITER_SOURCE)).catch(() => {});
 }
 async function loadGame(i) {
   try { await views[i].webContents.loadURL(GAME_URL); }
@@ -277,8 +475,21 @@ function createAccount(i) {
     return { action: 'deny' };
   });
   wc.on('did-create-window', child => {
-    guardNavigation(child.webContents);
-    child.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    const childWc = child.webContents;
+    guardNavigation(childWc);
+    childWc.setWindowOpenHandler(() => ({ action: 'deny' }));
+    childWc.on('dom-ready', () => installLimiterNow(childWc));
+    childWc.on('did-finish-load', () => installLimiterNow(childWc)
+      .then(() => childWc.executeJavaScript(`window.__LD_SET_FPS && window.__LD_SET_FPS(${prefs.perf.fgFps})`))
+      .catch(() => {}));
+  });
+  wc.on('dom-ready', () => {
+    // Injeção tardia: cobre o caso em que o CDP não está disponível.
+    installLimiterNow(wc).then(() => { lastFps[i] = null; schedulePerf(0); });
+    installCapture(wc);
+    startCredWatch(i);
+    applyCredentials(i);
+    sendState();
   });
   wc.on('did-start-loading', () => { states[i].status = 'st_loading'; sendState(); });
   wc.on('did-stop-loading', () => {
@@ -286,17 +497,22 @@ function createAccount(i) {
     sendState();
   });
   wc.on('did-finish-load', () => {
+    installLimiterNow(wc).then(() => { lastFps[i] = null; schedulePerf(0); });
+    installCapture(wc);
+    startCredWatch(i);
+    applyCredentials(i);
     wc.setZoomFactor(prefs.zoom[i]);
+    lastMuted[i] = null;
     states[i].status = 'st_open'; sendState();
   });
   wc.on('did-fail-load', (_event, code, _text, _url, isMainFrame) => {
     if (code === -3 || !isMainFrame) return;
     states[i].status = 'st_failed'; sendState();
   });
-  wc.on('render-process-gone', () => { states[i].status = 'st_crashed'; sendState(); });
+  wc.on('render-process-gone', () => { lastFps[i] = null; lastMuted[i] = null; states[i].status = 'st_crashed'; sendState(); });
   wc.on('unresponsive', () => { states[i].status = 'st_frozen'; sendState(); });
   wc.on('responsive', () => { states[i].status = 'st_open'; sendState(); });
-  wc.on('focus', () => { if (focused !== i) { focused = i; sendState(); } });
+  wc.on('focus', () => { if (focused !== i) { focused = i; } schedulePerf(0); sendState(); });
   wc.on('before-input-event', handleShortcut);
   main.contentView.addChildView(view);
   return view;
@@ -316,6 +532,7 @@ function defaultBounds() {
 }
 function createWindow() {
   loadPrefs();
+  initCredentials();
   const bounds = prefs.bounds && screen.getDisplayMatching(prefs.bounds) ? prefs.bounds : defaultBounds();
   main = new BrowserWindow({ ...bounds, minWidth: 1000, minHeight: 650,
     title: 'Leveling Dual', backgroundColor: '#0b0f17', autoHideMenuBar: true, show: !SHOT, icon: path.join(__dirname, 'icon.png'),
@@ -329,6 +546,14 @@ function createWindow() {
   main.webContents.on('did-finish-load', sendState);
   main.loadFile(UI_FILE);
   main.on('resize', layout);
+  for (const event of ['focus', 'blur', 'minimize', 'restore', 'show', 'hide', 'enter-full-screen', 'leave-full-screen']) {
+    main.on(event, () => schedulePerf(event === 'blur' ? 1500 : 0));
+  }
+  const lock = value => () => { locked = value; schedulePerf(0); };
+  powerMonitor?.on?.('lock-screen', lock(true));
+  powerMonitor?.on?.('unlock-screen', lock(false));
+  powerMonitor?.on?.('suspend', lock(true));
+  powerMonitor?.on?.('resume', lock(false));
   // abrir a janela grande de novo traz a conta da janelinha de volta
   main.on('restore', () => { if (pip) closePip(); });
   const remember = () => {
@@ -354,11 +579,14 @@ function createWindow() {
     for (const v of views) if (!v.webContents.isDestroyed()) v.webContents.close();
     views = []; main = null;
     clearInterval(usageTimer);
+    clearTimeout(perfTimer);
+    for (const timer of credWatch) clearInterval(timer);
     if (blocker !== undefined && powerSaveBlocker.isStarted(blocker)) powerSaveBlocker.stop(blocker);
     blocker = undefined;
   });
   blocker = powerSaveBlocker.start('prevent-app-suspension');
   layout();
+  applyPerf();
   loadGame(0); loadGame(1);
   if (prefs.usage) setUsage(true);
   checkUpdates();
@@ -384,6 +612,44 @@ ipcMain.handle('dual:command', async (event, message) => {
   if (action === 'lang' && LANGS.includes(value)) { prefs.lang = value; savePrefs(); sendState(); return; }
   if (action === 'pip') { togglePip(); return; }
   if (action === 'usage') { setUsage(!prefs.usage); savePrefs(); sendState(); return; }
+  if (action === 'credSave') {
+    if (index !== 0 && index !== 1) return;
+    if (!credAvailable) { sendState(); return; }
+    const user = String(value?.user ?? '').trim().slice(0, 16);
+    const pass = String(value?.pass ?? '').slice(0, 128);
+    const auto = value?.auto !== false;
+    const existing = credentials[index];
+    if (!/^[a-z0-9_-]{3,16}$/.test(user) || (!pass && !existing)) { sendState(); return; }
+    const previous = existing;
+    credentials[index] = { user, pass: pass || existing.pass, auto };
+    if (saveCredentials()) applyCredentials(index);
+    else credentials[index] = previous;
+    sendState();
+    return;
+  }
+  if (action === 'credClear') {
+    if (index !== 0 && index !== 1) return;
+    const previous = credentials[index];
+    credentials[index] = null;
+    if (!saveCredentials()) credentials[index] = previous;
+    sendState();
+    return;
+  }
+  if (action === 'credAuto') {
+    if (index !== 0 && index !== 1) return;
+    const existing = credentials[index];
+    if (!existing) return;
+    const previous = existing.auto;
+    existing.auto = value === true;
+    if (!saveCredentials()) existing.auto = previous;
+    sendState();
+    return;
+  }
+  if (action === 'perfEnabled') { prefs.perf.enabled = !prefs.perf.enabled; applyPerf(); savePrefs(); sendState(); return; }
+  if (action === 'perfMuteBg') { prefs.perf.muteBg = !prefs.perf.muteBg; applyPerf(); savePrefs(); sendState(); return; }
+  if (action === 'perfPauseHidden') { prefs.perf.pauseHidden = !prefs.perf.pauseHidden; savePrefs(); sendState(); return; }
+  if (action === 'perfFg' && FPS_FOREGROUND.includes(Number(value))) { prefs.perf.fgFps = Number(value); applyPerf(); savePrefs(); sendState(); return; }
+  if (action === 'perfBg' && FPS_BACKGROUND.includes(Number(value))) { prefs.perf.bgFps = Number(value); applyPerf(); savePrefs(); sendState(); return; }
   if (action === 'confirmClose') { prefs.confirmClose = !prefs.confirmClose; savePrefs(); sendState(); return; }
   if (action === 'updates') { prefs.updates = !prefs.updates; if (!prefs.updates) update = null; else checkUpdates(); savePrefs(); sendState(); return; }
   if (action === 'updateOpen') { if (update) shell.openExternal(update.url); return; }

@@ -1,5 +1,5 @@
 LEVELING DUAL — DUAS CONTAS EM UMA JANELA
-Versão 1.4.1 — Windows 10/11 (64 bits), macOS (Intel e Apple Silicon), Linux e Android
+Versão 1.5.0 — Windows 10/11 (64 bits), macOS (Intel e Apple Silicon), Linux e Android
 
 BAIXAR
 https://github.com/bruno220218/leveling-dual/releases
@@ -86,7 +86,18 @@ na pasta de dados do aplicativo, fora da pasta extraída:
 - Windows: %APPDATA%\Leveling Dual
 - macOS: ~/Library/Application Support/Leveling Dual
 - Linux: ~/.config/Leveling Dual
-O jogo pode pedir login novamente quando sua sessão expirar.
+Para economizar CPU/GPU, quando a janela não está em foco as contas são
+limitadas a 1 fps; ao voltar ao foco, rodam a 60 fps (ou 30, configurável em
+Opções > Desempenho). O jogo continua rodando e a sessão não é encerrada.
+A opção experimental de pausar o desenho quando minimizado fica desligada
+por padrão.
+
+O jogo pode pedir login novamente quando sua sessão expirar. Quando você entrar
+manualmente, o aplicativo pergunta se quer salvar o login; se aceitar, ele
+preenche o formulário e entra sozinho na próxima vez. Você também pode editar
+em Opções > Login automático. As credenciais ficam criptografadas pelo
+armazenamento seguro do sistema (Keychain/DPAPI/libsecret), nunca em texto
+puro, e podem ser apagadas a qualquer momento.
 
 As duas sessões compartilham a conexão/IP do seu computador. Não há proxy,
 macros, cliques automáticos, sincronização de comandos ou alterações no jogo.

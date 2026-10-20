@@ -35,6 +35,8 @@ Também dá para escolher qualquer versão na página de [**Releases**](https://
 | | |
 |---|---|
 | 🧩 **Duas contas, dois logins** | Cada lado tem sua própria sessão. Você entra uma vez e o login fica salvo. |
+| 🔋 **Modo economia** | Em segundo plano, o jogo cai para 1 fps sem parar a sessão; em foco, roda a 60 fps (ou 30, nas Opções). |
+| 🔐 **Login automático** | Quando você entra manualmente, o app pergunta se quer salvar (como um navegador). O login fica criptografado no sistema e preenche o formulário do jogo na próxima vez. Também dá para editar em Opções. |
 | ↔️ **Lado a lado ou empilhado** | Arraste a faixa entre as contas para dar mais espaço a uma delas; duplo clique centraliza. |
 | 🔍 **Ampliar uma conta** | Dá a janela inteira para uma conta sem fechar a outra. Esc volta. |
 | 🎯 **Conta ativa visível** | A borda colorida mostra qual conta recebe o teclado. |
@@ -47,6 +49,9 @@ Também dá para escolher qualquer versão na página de [**Releases**](https://
 | 🎚️ **Controles por conta** | Nome, zoom, som e recarregar em cada lado. A segunda conta começa sem som. |
 | 🖥️ **Barra escondível** | Ctrl+B esconde a barra e o rodapé para ganhar espaço. |
 | 💾 **Lembra tudo** | Tamanho da janela, divisão, nomes, zoom, som, idioma, cores e ícones continuam iguais na próxima vez. |
+
+> [!NOTE]
+> O **modo economia por FPS** e o **login automático** são recursos do aplicativo desktop. O Android tem o modo economia de desenho, mas ainda não tem o login automático.
 
 > [!IMPORTANT]
 > O jogo permite **no máximo 2 contas por pessoa**, então o aplicativo abre só duas. Usar mais contas pode dar banimento.
@@ -139,7 +144,7 @@ As teclas sem <kbd>Ctrl</kbd> continuam indo para o jogo normalmente.
 
 ## 🛡️ Segurança
 
-- O aplicativo **não lê nem guarda senhas**. O login fica na sessão do próprio site, como num navegador.
+- Por padrão, o aplicativo **não guarda senhas**. Quando você entra manualmente, ele pergunta se quer salvar o login; se aceitar, o usuário e a senha de cada conta ficam criptografados pelo armazenamento seguro do sistema (Keychain no macOS, DPAPI no Windows, libsecret no Linux) e são usados apenas para preencher o formulário do próprio jogo. Você também pode editar ou apagar em **Opções → Login automático**. Nada é enviado para fora.
 - As páginas do jogo rodam isoladas, sem acesso ao seu computador.
 - Links de fora do jogo abrem no seu navegador.
 - Não há macro, clique automático, proxy ou qualquer alteração no jogo. O teclado controla só a conta que você clicar.

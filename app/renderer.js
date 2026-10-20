@@ -6,6 +6,7 @@ let drag = false;
 let frame = 0;
 let last = null; // último estado recebido
 let lang = 'pt';
+const credDirty = [false, false];
 const t = (key, vars = {}) => String((I18N[lang] || I18N.pt)[key] ?? I18N.pt[key] ?? key).replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? '');
 // A CSP não aceita style="" no HTML: as posições e cores são aplicadas pelo JS.
 function box(className, rect, color) {
@@ -85,7 +86,63 @@ function openModal(id, open) {
   document.getElementById(id).hidden = !open;
   const any = [...document.querySelectorAll('.modal')].some(m => !m.hidden);
   api.command({ action: 'overlay', value: any });
-  if (open && id === 'options-box' && last) drawCustomizer(last);
+  if (open && id === 'options-box' && last) { credDirty[0] = false; credDirty[1] = false; drawCustomizer(last); updateCredentials(last); }
+}
+function bindCredentials() {
+  for (let i = 0; i < 2; i++) {
+    const user = document.getElementById(`cred-user-${i}`);
+    const pass = document.getElementById(`cred-pass-${i}`);
+    const auto = document.getElementById(`cred-auto-${i}`);
+    const save = document.getElementById(`cred-save-${i}`);
+    const clear = document.getElementById(`cred-clear-${i}`);
+    if (!user || !pass || !auto || !save || !clear) continue;
+    user.addEventListener('input', () => { credDirty[i] = true; user.setCustomValidity(''); });
+    pass.addEventListener('input', () => { credDirty[i] = true; pass.setCustomValidity(''); });
+    save.addEventListener('click', () => {
+      const name = user.value.trim();
+      if (!/^[a-z0-9_-]{3,16}$/.test(name)) {
+        user.setCustomValidity(t('cred_invalid')); user.reportValidity(); return;
+      }
+      if (!pass.value && !last?.credentials?.[i]?.has) {
+        pass.setCustomValidity(t('cred_need_pass')); pass.reportValidity(); return;
+      }
+      user.setCustomValidity(''); pass.setCustomValidity('');
+      credDirty[i] = false;
+      api.command({ action: 'credSave', index: i, value: { user: name, pass: pass.value, auto: auto.checked } });
+      pass.value = '';
+    });
+    clear.addEventListener('click', () => {
+      credDirty[i] = false;
+      pass.value = '';
+      api.command({ action: 'credClear', index: i });
+    });
+    auto.addEventListener('change', () => api.command({ action: 'credAuto', index: i, value: auto.checked }));
+  }
+}
+function updateCredentials(state) {
+  const available = Boolean(state.credAvailable);
+  for (let i = 0; i < 2; i++) {
+    const data = state.credentials?.[i] || { has: false, user: '', auto: true };
+    const user = document.getElementById(`cred-user-${i}`);
+    const pass = document.getElementById(`cred-pass-${i}`);
+    const auto = document.getElementById(`cred-auto-${i}`);
+    const save = document.getElementById(`cred-save-${i}`);
+    const clear = document.getElementById(`cred-clear-${i}`);
+    const status = document.getElementById(`cred-status-${i}`);
+    const name = document.getElementById(`cred-name-${i}`);
+    if (!user || !pass || !auto || !save || !clear || !status) continue;
+    if (name && state.accounts?.[i]) name.textContent = displayName(state.accounts[i], i);
+    if (!credDirty[i] && document.activeElement !== user) user.value = data.has ? data.user : '';
+    pass.placeholder = data.has ? '••••••' : '';
+    if (document.activeElement !== auto) auto.checked = data.auto !== false;
+    user.disabled = !available;
+    pass.disabled = !available;
+    auto.disabled = !available || !data.has;
+    save.disabled = !available;
+    clear.disabled = !available || !data.has;
+    status.textContent = !available ? t('cred_unavailable') : data.has ? t('cred_saved') : t('cred_empty');
+    status.classList.toggle('saved', Boolean(available && data.has));
+  }
 }
 if (api) {
   applyLanguage('pt');
@@ -107,6 +164,11 @@ if (api) {
     document.querySelectorAll('.modal').forEach(modal => { if (!modal.hidden) openModal(modal.id, false); });
   });
   document.querySelectorAll('[data-pref]').forEach(input => input.addEventListener('change', () => api.command({ action: input.dataset.pref })));
+  bindCredentials();
+  const perfFg = document.getElementById('perf-fg');
+  const perfBg = document.getElementById('perf-bg');
+  if (perfFg) perfFg.addEventListener('change', () => api.command({ action: 'perfFg', value: Number(perfFg.value) }));
+  if (perfBg) perfBg.addEventListener('change', () => api.command({ action: 'perfBg', value: Number(perfBg.value) }));
   document.querySelectorAll('.account').forEach(account => {
     const index = Number(account.dataset.index);
     account.querySelectorAll('[data-action]').forEach(button => button.addEventListener('click', () => {
@@ -153,6 +215,8 @@ if (api) {
     document.querySelectorAll('[data-lang]').forEach(button => button.classList.toggle('selected', button.dataset.lang === state.lang));
     document.getElementById('pip').classList.toggle('selected', state.pip >= 0);
     document.querySelectorAll('[data-pref]').forEach(input => { input.checked = Boolean(state[input.dataset.pref]); });
+    if (perfFg) perfFg.value = String(state.perfFg ?? 60);
+    if (perfBg) perfBg.value = String(state.perfBg ?? 1);
     document.getElementById('version-line').textContent = `Leveling Dual ${state.version}`;
     const pill = document.getElementById('update');
     pill.hidden = !state.update;
@@ -166,13 +230,13 @@ if (api) {
       account.style.setProperty('--c', data.color);
       account.classList.toggle('active', state.focused === i);
       account.querySelector('.icon').textContent = data.icon;
-      const usage = data.usage ? ` · ${t('usage', { cpu: data.usage.cpu, mem: data.usage.mem })}` : '';
+      const usage = data.usage ? ` · ${t('usage', { cpu: data.usage.cpu, mem: data.usage.mem, fps: data.usage.fps ?? 0 })}` : '';
       account.querySelector('.status').textContent = t(data.status) + usage;
       account.querySelector('.zoom').textContent = `${data.zoom}%`;
       account.querySelector('.mute').textContent = data.muted ? t('unmute') : t('mute');
       account.querySelector('.expand').textContent = state.mode === (i ? 'two' : 'one') ? t('back') : t('expand');
     });
-    if (!document.getElementById('options-box').hidden) drawCustomizer(state);
+    if (!document.getElementById('options-box').hidden) { drawCustomizer(state); updateCredentials(state); }
     drawLayer(state);
   });
   api.command({ action: 'state' });

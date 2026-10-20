@@ -16,23 +16,24 @@ async function setup(t, options = {}) {
   if (options.prefs) fs.writeFileSync(path.join(dir, 'preferences.json'), JSON.stringify(options.prefs));
   const windows = [], views = [], handlers = new Map(), opened = [], dialogs = [], switches = [];
   class Contents extends EventEmitter {
-    constructor(options) { super(); this.options = options; this.loads = []; this.messages = []; this.session = { setPermissionRequestHandler() {}, setPermissionCheckHandler() {}, cookies: { flushStore: async () => {} } }; }
+    constructor(options) { super(); this.options = options; this.loads = []; this.messages = []; this.scripts = []; this.session = { setPermissionRequestHandler() {}, setPermissionCheckHandler() {}, cookies: { flushStore: async () => {} } }; this.debugger = { attached: false, isAttached() { return this.attached; }, attach() { this.attached = true; }, async sendCommand() { return {}; } }; }
     send(channel, data) { this.messages.push({ channel, data }); }
     setWindowOpenHandler(handler) { this.openHandler = handler; }
     isDestroyed() { return false; }
     setZoomFactor(value) { this.zoom = value; }
     setAudioMuted(value) { this.muted = value; }
+    async executeJavaScript(script) { this.scripts.push(script); return 0; }
     focus() { this.focused = true; }
     getOSProcessId() { return this.pid; }
     async loadURL(url) { this.loads.push(url); this.emit('did-start-loading'); this.emit('did-finish-load'); this.emit('did-stop-loading'); }
     close() {}
   }
   class Window extends EventEmitter {
-    constructor(options) { super(); this.options = options; this.webContents = new Contents(options.webPreferences); this.children = new Set(); this.contentView = { addChildView: v => this.children.add(v), removeChildView: v => this.children.delete(v) }; windows.push(this); }
+    constructor(options) { super(); this.options = options; this.webContents = new Contents(options.webPreferences); this.children = new Set(); this.contentView = { addChildView: v => this.children.add(v), removeChildView: v => this.children.delete(v) }; this.minimized = false; this.visible = true; this.focused = true; windows.push(this); }
     loadFile() { this.webContents.emit('did-finish-load'); }
     getContentSize() { return this.options.frame === false ? [520, 360] : [1600, 950]; }
     isDestroyed() { return Boolean(this.destroyed); }
-    minimize() { this.minimized = true; } restore() { this.minimized = false; this.emit('restore'); } isMinimized() { return Boolean(this.minimized); } show() {} destroy() { this.destroyed = true; }
+    minimize() { this.minimized = true; } restore() { this.minimized = false; this.emit('restore'); } isMinimized() { return Boolean(this.minimized); } isFocused() { return this.focused !== false; } isVisible() { return this.visible !== false; } show() { this.visible = true; } hide() { this.visible = false; } destroy() { this.destroyed = true; }
     showInactive() {} maximize() {} close() { this.closed = true; if (this.options.frame === false) { this.destroyed = true; this.emit('closed'); } } setAlwaysOnTop(value) { this.onTop = value; } isMaximized() { return false; } isFullScreen() { return false; }
     getBounds() { return { x: 0, y: 0, width: 1600, height: 950 }; }
   }
@@ -45,14 +46,21 @@ async function setup(t, options = {}) {
   const app = new EventEmitter();
   Object.assign(app, { setName() {}, setPath() {}, getVersion: () => '1.1.0', getLocale: () => options.locale || 'pt-BR',
     getAppMetrics: () => views.map((v, i) => ({ pid: v.webContents.pid, cpu: { percentCPUUsage: 3.4 + i }, memory: { workingSetSize: 204800 * (i + 1) } })), commandLine: { appendSwitch: name => switches.push(name) }, getPath: () => dir, requestSingleInstanceLock: () => true, whenReady: () => Promise.resolve(), quit() {} });
-  const electron = { app, BrowserWindow: Window, WebContentsView: View,
+  const powerMonitor = new EventEmitter();
+  const safeStorage = {
+    isEncryptionAvailable: () => options.safeStorage !== false,
+    getSelectedStorageBackend: () => 'keychain',
+    encryptString: value => Buffer.from(Buffer.from(value, 'utf8').toString('base64')),
+    decryptString: value => Buffer.from(value.toString(), 'base64').toString('utf8')
+  };
+  const electron = { app, BrowserWindow: Window, WebContentsView: View, powerMonitor, safeStorage,
     ipcMain: { handle: (channel, callback) => handlers.set(channel, callback) }, Menu: { setApplicationMenu() {} },
     dialog: { showMessageBox: async (_win, opts) => { dialogs.push(opts); return options.dialog || { response: 0 }; } }, screen: { getDisplayMatching: () => null },
     shell: { openExternal: url => opened.push(url) },
     powerSaveBlocker: { start: () => 1, isStarted: () => true, stop() {} } };
   vm.runInNewContext(fs.readFileSync(path.join(appDir, 'main.cjs'), 'utf8'), {
     require: id => id === 'electron' ? electron : id.startsWith('./') ? require(path.join(appDir, id)) : require(id),
-    __dirname: appDir, URL, console, process: { env: {}, platform: options.platform || 'win32' }, setInterval: () => 0, clearInterval() {}, fetch: options.fetch
+    __dirname: appDir, URL, console, process: { env: {}, platform: options.platform || 'win32' }, setInterval: () => 0, clearInterval() {}, setTimeout, clearTimeout, fetch: options.fetch
   }, { filename: 'main.cjs' });
   await new Promise(resolve => setImmediate(resolve));
   const win = windows[0];
@@ -63,7 +71,7 @@ async function setup(t, options = {}) {
   // o estado vem de outro contexto (vm): JSON deixa os objetos comparáveis
   const lastState = () => JSON.parse(JSON.stringify(win.webContents.messages.filter(m => m.channel === 'dual:state').at(-1).data));
   const saved = () => JSON.parse(fs.readFileSync(path.join(dir, 'preferences.json'), 'utf8'));
-  return { win, views, command, rawCommand: handlers.get('dual:command'), event, dir, opened, dialogs, lastState, saved, switches };
+  return { win, views, command, rawCommand: handlers.get('dual:command'), event, dir, opened, dialogs, lastState, saved, switches, powerMonitor };
 }
 test('duas contas usam sessões persistentes diferentes e páginas sem acesso privilegiado', async t => {
   const { views } = await setup(t);
@@ -223,7 +231,8 @@ test('uso de CPU e memória fica escondido até ligar a opção', async t => {
   const { command, lastState } = await setup(t);
   assert.equal(lastState().accounts[0].usage, null);
   await command({ action: 'usage' });
-  assert.deepEqual(lastState().accounts.map(a => a.usage), [{ cpu: 3, mem: 200 }, { cpu: 4, mem: 400 }]);
+  await new Promise(resolve => setTimeout(resolve, 20));
+  assert.deepEqual(lastState().accounts.map(a => a.usage), [{ cpu: 3, mem: 200, fps: 0 }, { cpu: 4, mem: 400, fps: 0 }]);
   await command({ action: 'usage' });
   assert.equal(lastState().accounts[1].usage, null);
 });
@@ -276,4 +285,67 @@ test('no Linux libera WebGL por software para VMs sem GPU', async t => {
   const { switches } = await setup(t, { platform: 'linux' });
   assert.ok(switches.includes('enable-unsafe-swiftshader'));
   assert.ok(switches.includes('ignore-gpu-blocklist'));
+});
+
+test('modo economia reduz o FPS no background e volta ao foco', async t => {
+  const { win, views } = await setup(t);
+  const lastScript = i => views[i].webContents.scripts.filter(s => /__LD_SET_FPS\(\d+\)/.test(s)).at(-1) || '';
+  assert.match(lastScript(0), /\(60\)/);
+  win.focused = false;
+  win.minimized = true;
+  win.emit('minimize');
+  await new Promise(resolve => setTimeout(resolve, 20));
+  assert.match(lastScript(0), /\(1\)/);
+  assert.match(lastScript(1), /\(1\)/);
+  win.minimized = false;
+  win.focused = true;
+  win.emit('restore');
+  win.emit('focus');
+  await new Promise(resolve => setTimeout(resolve, 20));
+  assert.match(lastScript(0), /\(60\)/);
+});
+test('opções de desempenho persistem e validam os valores', async t => {
+  const { command, lastState, saved } = await setup(t);
+  await command({ action: 'perfFg', value: 30 });
+  assert.equal(lastState().perfFg, 30);
+  await command({ action: 'perfBg', value: 0 });
+  assert.equal(lastState().perfBg, 0);
+  await command({ action: 'perfFg', value: 45 });
+  assert.equal(lastState().perfFg, 30);
+  await command({ action: 'perfEnabled' });
+  assert.equal(lastState().perfEnabled, false);
+  assert.equal(saved().perf.fgFps, 30);
+});
+test('Fase 0b remove os switches que mantêm a página desenhando escondida', async t => {
+  const { switches } = await setup(t, { prefs: { perf: { pauseHidden: true } } });
+  assert.ok(switches.includes('disable-background-timer-throttling'));
+  assert.ok(!switches.includes('disable-backgrounding-occluded-windows'));
+  assert.ok(!switches.includes('disable-renderer-backgrounding'));
+});
+
+test('login salvo fica criptografado e é injetado na página', async t => {
+  const { command, lastState, views, dir } = await setup(t);
+  await command({ action: 'credSave', index: 0, value: { user: 'jinwoo', pass: 'segredo123', auto: true } });
+  const state = lastState();
+  assert.equal(state.credAvailable, true);
+  assert.equal(state.credentials[0].has, true);
+  assert.equal(state.credentials[0].user, 'jinwoo');
+  assert.equal(state.credentials[0].pass, undefined);
+  assert.equal(state.credentials[0].password, undefined);
+  const raw = fs.readFileSync(path.join(dir, 'credentials.bin'), 'utf8');
+  assert.ok(!raw.includes('segredo123'));
+  assert.ok(raw.length > 10);
+  assert.ok(views[0].webContents.scripts.some(script => script.includes('#slAuth-username') && script.includes('jinwoo')));
+  await command({ action: 'credAuto', index: 0, value: false });
+  assert.equal(lastState().credentials[0].auto, false);
+  await command({ action: 'credClear', index: 0 });
+  assert.equal(lastState().credentials[0].has, false);
+  assert.ok(!fs.existsSync(path.join(dir, 'credentials.bin')));
+});
+
+test('sem armazenamento seguro o login não é gravado', async t => {
+  const { command, lastState } = await setup(t, { safeStorage: false });
+  await command({ action: 'credSave', index: 0, value: { user: 'a', pass: 'b' } });
+  assert.equal(lastState().credAvailable, false);
+  assert.equal(lastState().credentials[0].has, false);
 });
