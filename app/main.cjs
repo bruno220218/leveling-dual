@@ -53,6 +53,13 @@ if (!(STARTUP_PERF.enabled && STARTUP_PERF.pauseHidden)) {
 if (IS_LINUX) {
   app.commandLine.appendSwitch('enable-unsafe-swiftshader');
   app.commandLine.appendSwitch('ignore-gpu-blocklist');
+  // XFCE e ambientes sem DE costumam ter o chaveiro trancado (xrdp) e o
+  // Electron travaria esperando o desbloqueio. Nesses casos usa o backend
+  // básico e o initCredentials liga o fallback de texto do safeStorage.
+  const desktop = String(process.env.XDG_CURRENT_DESKTOP || '').toUpperCase();
+  if (!/GNOME|KDE|CINNAMON|DEEPIN|PANTHEON|UKUI|UNITY/.test(desktop)) {
+    app.commandLine.appendSwitch('password-store', 'basic');
+  }
 }
 let main;
 let views = [];
@@ -135,16 +142,24 @@ function initCredentials() {
   credInsecure = false;
   try {
     credAvailable = Boolean(safeStorage?.isEncryptionAvailable?.());
+    if (!credAvailable && process.platform === 'linux' && safeStorage?.setUsePlainTextEncryption) {
+      // Sem chaveiro disponível o Electron retorna false mesmo com backend
+      // basic_text; isto liga o modo de texto (chave fixa) para ainda salvar.
+      safeStorage.setUsePlainTextEncryption(true);
+      credAvailable = Boolean(safeStorage.isEncryptionAvailable());
+      if (credAvailable) { credBackend = 'basic_text'; credInsecure = true; }
+    }
     if (credAvailable && process.platform === 'linux') {
       const backend = String(safeStorage.getSelectedStorageBackend?.() || '');
-      credBackend = backend || 'unknown';
+      credBackend = backend || credBackend || 'unknown';
       // Sem chaveiro (libsecret/gnome-keyring) o Electron usa basic_text, que
       // ofusca com chave fixa. Ainda permite salvar, mas avisa que não é seguro.
-      credInsecure = !backend || backend === 'basic_text';
+      credInsecure = credInsecure || !backend || backend === 'basic_text';
     } else if (credAvailable) {
       credBackend = process.platform === 'darwin' ? 'keychain' : process.platform === 'win32' ? 'dpapi' : 'secret-service';
     }
   } catch { credAvailable = false; }
+  if (process.env.LD_CREDS_DEBUG) console.log('[creds]', { credAvailable, credBackend, credInsecure });
   if (!credAvailable) { credentials = [null, null]; return; }
   try {
     const raw = fs.readFileSync(credFile());

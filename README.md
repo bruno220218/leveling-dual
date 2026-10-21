@@ -144,7 +144,7 @@ As teclas sem <kbd>Ctrl</kbd> continuam indo para o jogo normalmente.
 
 ## 🛡️ Segurança
 
-- Por padrão, o aplicativo **não guarda senhas**. Quando você entra manualmente, ele pergunta se quer salvar o login; se aceitar, o usuário e a senha de cada conta ficam criptografados pelo armazenamento seguro do sistema (Keychain no macOS, DPAPI no Windows, libsecret no Linux) e são usados apenas para preencher o formulário do próprio jogo. Você também pode editar ou apagar em **Opções → Login automático**. Nada é enviado para fora. Em Linux sem chaveiro (libsecret/gnome-keyring), o app avisa e salva o login ofuscado em um arquivo acessível só pela sua conta; instale `libsecret-1-0` para usar o chaveiro.
+- Por padrão, o aplicativo **não guarda senhas**. Quando você entra manualmente, ele pergunta se quer salvar o login; se aceitar, o usuário e a senha de cada conta ficam criptografados pelo armazenamento seguro do sistema (Keychain no macOS, DPAPI no Windows, libsecret no Linux) e são usados apenas para preencher o formulário do próprio jogo. Você também pode editar ou apagar em **Opções → Login automático**. Nada é enviado para fora. Em Linux sem chaveiro disponível ou com o chaveiro trancado (comum em XFCE/xrdp), o app avisa e salva o login ofuscado em um arquivo acessível só pela sua conta; desbloqueie o chaveiro do sistema para ter criptografia real.
 - As páginas do jogo rodam isoladas, sem acesso ao seu computador.
 - Links de fora do jogo abrem no seu navegador.
 - Não há macro, clique automático, proxy ou qualquer alteração no jogo. O teclado controla só a conta que você clicar.

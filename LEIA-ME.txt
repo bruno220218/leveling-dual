@@ -98,9 +98,9 @@ preenche o formulário e entra sozinho na próxima vez. Você também pode edita
 em Opções > Login automático. As credenciais ficam criptografadas pelo
 armazenamento seguro do sistema (Keychain/DPAPI/libsecret), nunca em texto
 puro, e podem ser apagadas a qualquer momento. Se o Linux não tiver chaveiro
-(libsecret/gnome-keyring), o aplicativo avisa e salva o login ofuscado em um
-arquivo acessível só pela sua conta; instale libsecret-1-0 para usar o
-chaveiro do sistema.
+disponível ou ele estiver trancado (comum em XFCE/xrdp), o aplicativo avisa e
+salva o login ofuscado em um arquivo acessível só pela sua conta; desbloqueie
+o chaveiro do sistema para usar a criptografia real.
 
 As duas sessões compartilham a conexão/IP do seu computador. Não há proxy,
 macros, cliques automáticos, sincronização de comandos ou alterações no jogo.

@@ -47,9 +47,11 @@ async function setup(t, options = {}) {
   Object.assign(app, { setName() {}, setPath() {}, getVersion: () => '1.1.0', getLocale: () => options.locale || 'pt-BR',
     getAppMetrics: () => views.map((v, i) => ({ pid: v.webContents.pid, cpu: { percentCPUUsage: 3.4 + i }, memory: { workingSetSize: 204800 * (i + 1) } })), commandLine: { appendSwitch: name => switches.push(name) }, getPath: () => dir, requestSingleInstanceLock: () => true, whenReady: () => Promise.resolve(), quit() {} });
   const powerMonitor = new EventEmitter();
+  let plainText = false;
   const safeStorage = {
-    isEncryptionAvailable: () => options.safeStorage !== false,
+    isEncryptionAvailable: () => options.safeStorage !== false && (!options.plainTextOnly || plainText),
     getSelectedStorageBackend: () => options.backend || 'keychain',
+    setUsePlainTextEncryption: value => { if (value) plainText = true; },
     encryptString: value => Buffer.from(Buffer.from(value, 'utf8').toString('base64')),
     decryptString: value => Buffer.from(value.toString(), 'base64').toString('utf8')
   };
@@ -366,4 +368,15 @@ test('linux com chaveiro não mostra o aviso de armazenamento fraco', async t =>
   await command({ action: 'credSave', index: 0, value: { user: 'jinwoo', pass: 'segredo123' } });
   assert.equal(lastState().credAvailable, true);
   assert.equal(lastState().credInsecure, false);
+});
+
+test('linux sem chaveiro liga o fallback de texto e salva o login', async t => {
+  const { command, lastState, switches } = await setup(t, { platform: 'linux', backend: 'basic_text', plainTextOnly: true });
+  assert.ok(switches.includes('password-store'), 'XFCE/sem DE usa o backend básico');
+  await command({ action: 'credSave', index: 0, value: { user: 'jinwoo', pass: 'segredo123', auto: true } });
+  const state = lastState();
+  assert.equal(state.credAvailable, true);
+  assert.equal(state.credInsecure, true);
+  assert.equal(state.credBackend, 'basic_text');
+  assert.equal(state.credentials[0].has, true);
 });
