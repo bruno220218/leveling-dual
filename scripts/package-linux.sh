@@ -56,7 +56,7 @@ Priority: optional
 Architecture: amd64
 Installed-Size: $SIZE_KB
 Maintainer: bruno220218 <bruno220218@users.noreply.github.com>
-Depends: libgtk-3-0, libnss3, libnspr4, libasound2t64 | libasound2, libgbm1, libxkbcommon0, libxcomposite1, libxdamage1, libxrandr2, libatk-bridge2.0-0, libatspi2.0-0, libcups2, libdrm2, libpango-1.0-0, libcairo2, libx11-6, libxcb1, libxext6, libxfixes3, xdg-utils
+Depends: libgtk-3-0, libnss3, libnspr4, libasound2t64 | libasound2, libgbm1, libxkbcommon0, libxcomposite1, libxdamage1, libxrandr2, libatk-bridge2.0-0, libatspi2.0-0, libcups2, libdrm2, libpango-1.0-0, libcairo2, libx11-6, libxcb1, libxext6, libxfixes3, libsecret-1-0, xdg-utils
 Description: Duas contas de Leveling Idle 2D em uma janela
  Aplicativo independente que abre o jogo em duas sessoes separadas,
  com barra de controles, janelinha flutuante e tres idiomas.

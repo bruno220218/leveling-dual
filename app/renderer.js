@@ -121,6 +121,8 @@ function bindCredentials() {
 }
 function updateCredentials(state) {
   const available = Boolean(state.credAvailable);
+  const warning = document.getElementById('cred-warning');
+  if (warning) warning.textContent = t(state.credInsecure ? 'cred_warning_basic' : 'cred_warning');
   for (let i = 0; i < 2; i++) {
     const data = state.credentials?.[i] || { has: false, user: '', auto: true };
     const user = document.getElementById(`cred-user-${i}`);

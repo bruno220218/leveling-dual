@@ -72,6 +72,7 @@ const lastMuted = [null, null];
 let credentials = [null, null];
 let credAvailable = false;
 let credBackend = '';
+let credInsecure = false;
 const credWatch = [null, null];
 const credBusy = [false, false];
 // O jogo permite no máximo 2 contas por pessoa: o aplicativo nunca abre uma terceira.
@@ -131,12 +132,15 @@ function credFile() { return path.join(app.getPath('userData'), 'credentials.bin
 function initCredentials() {
   credAvailable = false;
   credBackend = '';
+  credInsecure = false;
   try {
     credAvailable = Boolean(safeStorage?.isEncryptionAvailable?.());
     if (credAvailable && process.platform === 'linux') {
       const backend = String(safeStorage.getSelectedStorageBackend?.() || '');
-      if (!backend || backend === 'basic_text') credAvailable = false;
-      else credBackend = backend;
+      credBackend = backend || 'unknown';
+      // Sem chaveiro (libsecret/gnome-keyring) o Electron usa basic_text, que
+      // ofusca com chave fixa. Ainda permite salvar, mas avisa que não é seguro.
+      credInsecure = !backend || backend === 'basic_text';
     } else if (credAvailable) {
       credBackend = process.platform === 'darwin' ? 'keychain' : process.platform === 'win32' ? 'dpapi' : 'secret-service';
     }
@@ -230,7 +234,7 @@ function sendState() {
     lang: prefs.lang, pip: pip ? pip.index : -1, usage: prefs.usage, confirmClose: prefs.confirmClose, updates: prefs.updates,
     perfEnabled: prefs.perf.enabled, perfMuteBg: prefs.perf.muteBg, perfPauseHidden: prefs.perf.pauseHidden,
     perfFg: prefs.perf.fgFps, perfBg: prefs.perf.bgFps, perfPauseHiddenActive: STARTUP_PERF.pauseHidden,
-    credAvailable, credBackend,
+    credAvailable, credBackend, credInsecure,
     credentials: credentials.map(c => c ? { has: true, user: c.user, auto: c.auto !== false } : { has: false, user: '', auto: true }),
     update, version: app.getVersion?.() || '', choices: { colors: COLORS, icons: ICONS },
     accounts: states.map((s, i) => ({ status: s.status, usage: prefs.usage ? s.usage || null : null, name: prefs.names[i],

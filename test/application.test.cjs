@@ -49,7 +49,7 @@ async function setup(t, options = {}) {
   const powerMonitor = new EventEmitter();
   const safeStorage = {
     isEncryptionAvailable: () => options.safeStorage !== false,
-    getSelectedStorageBackend: () => 'keychain',
+    getSelectedStorageBackend: () => options.backend || 'keychain',
     encryptString: value => Buffer.from(Buffer.from(value, 'utf8').toString('base64')),
     decryptString: value => Buffer.from(value.toString(), 'base64').toString('utf8')
   };
@@ -348,4 +348,22 @@ test('sem armazenamento seguro o login não é gravado', async t => {
   await command({ action: 'credSave', index: 0, value: { user: 'a', pass: 'b' } });
   assert.equal(lastState().credAvailable, false);
   assert.equal(lastState().credentials[0].has, false);
+});
+
+test('linux sem chaveiro (basic_text) ainda salva o login, com aviso', async t => {
+  const { command, lastState, dir } = await setup(t, { platform: 'linux', backend: 'basic_text' });
+  await command({ action: 'credSave', index: 0, value: { user: 'jinwoo', pass: 'segredo123', auto: true } });
+  const state = lastState();
+  assert.equal(state.credAvailable, true);
+  assert.equal(state.credInsecure, true);
+  assert.equal(state.credBackend, 'basic_text');
+  assert.equal(state.credentials[0].has, true);
+  assert.ok(fs.existsSync(path.join(dir, 'credentials.bin')));
+});
+
+test('linux com chaveiro não mostra o aviso de armazenamento fraco', async t => {
+  const { command, lastState } = await setup(t, { platform: 'linux', backend: 'gnome_libsecret' });
+  await command({ action: 'credSave', index: 0, value: { user: 'jinwoo', pass: 'segredo123' } });
+  assert.equal(lastState().credAvailable, true);
+  assert.equal(lastState().credInsecure, false);
 });
