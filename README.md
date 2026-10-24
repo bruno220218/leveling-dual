@@ -95,6 +95,33 @@ As teclas sem <kbd>Ctrl</kbd> continuam indo para o jogo normalmente.
 - O aviso de versão só consulta a lista pública de Releases deste repositório; nenhum dado seu é enviado.
 - O código-fonte vai junto em cada versão, no arquivo `Codigo-fonte.zip`.
 
+## 🧑‍💻 Código-fonte
+
+```text
+app/      aplicativo desktop (Electron)
+build/    ícones do Windows e do macOS
+test/     testes do desktop
+android/  aplicativo Android (Java + WebView nativo)
+scripts/  empacotamento do .deb/.tar.gz do Linux
+docs/     imagens usadas no README
+```
+
+Requisitos: **Node.js 22.12 ou mais novo**.
+
+```bash
+npm install
+npm test             # testes das sessões e da interface
+npm start            # versão de desenvolvimento
+npm run build:win    # pasta Windows (x64)
+npm run build:mac    # app universal (Intel + Apple Silicon)
+npm run build:linux  # pasta Linux (x64)
+npm run package:linux # .tar.gz e .deb para Ubuntu/Debian
+npm run build:android # APK de teste (precisa do Android SDK)
+```
+
+No Windows, também dá para abrir `INICIAR.bat`. No macOS, use `INICIAR-MAC.command`. No Linux, use `npm start` ou o binário `leveling-dual` depois de instalar o pacote.
+
+
 ## 👥 Créditos
 
 <table>
