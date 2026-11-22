@@ -2,13 +2,12 @@
 const api = window.dual;
 const I18N = window.I18N;
 const layer = document.getElementById('layer');
+const credDirty = [false, false];
 let drag = false;
 let frame = 0;
-let last = null; // último estado recebido
+let last = null;
 let lang = 'pt';
-const credDirty = [false, false];
 const t = (key, vars = {}) => String((I18N[lang] || I18N.pt)[key] ?? I18N.pt[key] ?? key).replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? '');
-// A CSP não aceita style="" no HTML: as posições e cores são aplicadas pelo JS.
 function box(className, rect, color) {
   const el = document.createElement('div');
   el.className = className;
@@ -100,7 +99,7 @@ function bindCredentials() {
     pass.addEventListener('input', () => { credDirty[i] = true; pass.setCustomValidity(''); });
     save.addEventListener('click', () => {
       const name = user.value.trim();
-      if (!/^[a-z0-9_-]{3,16}$/.test(name)) {
+      if (!/^[A-Za-z0-9_-]{3,16}$/.test(name)) {
         user.setCustomValidity(t('cred_invalid')); user.reportValidity(); return;
       }
       if (!pass.value && !last?.credentials?.[i]?.has) {
@@ -157,6 +156,8 @@ if (api) {
   document.getElementById('show-bar').addEventListener('click', () => api.command({ action: 'compact' }));
   document.getElementById('update-get').addEventListener('click', () => api.command({ action: 'updateOpen' }));
   document.getElementById('update-skip').addEventListener('click', () => api.command({ action: 'updateSkip' }));
+  document.getElementById('dps-retry').addEventListener('click', () => api.command({ action: 'dpsRetry' }));
+  document.getElementById('dps-store').addEventListener('click', () => api.command({ action: 'dpsStore' }));
   document.getElementById('help').addEventListener('click', () => openModal('help-box', true));
   document.getElementById('options').addEventListener('click', () => openModal('options-box', true));
   document.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', () => openModal(button.dataset.close, false)));
@@ -171,6 +172,9 @@ if (api) {
   const perfBg = document.getElementById('perf-bg');
   if (perfFg) perfFg.addEventListener('change', () => api.command({ action: 'perfFg', value: Number(perfFg.value) }));
   if (perfBg) perfBg.addEventListener('change', () => api.command({ action: 'perfBg', value: Number(perfBg.value) }));
+  const sendAutoReload = () => api.command({ action: 'autoReload', value: { on: document.getElementById('ar-on').checked,
+    value: Number(document.getElementById('ar-value').value), unit: document.getElementById('ar-unit').value } });
+  ['ar-on', 'ar-value', 'ar-unit'].forEach(id => document.getElementById(id).addEventListener('change', sendAutoReload));
   document.querySelectorAll('.account').forEach(account => {
     const index = Number(account.dataset.index);
     account.querySelectorAll('[data-action]').forEach(button => button.addEventListener('click', () => {
@@ -182,7 +186,6 @@ if (api) {
     input.addEventListener('change', () => api.command({ action: 'name', index, value: input.value }));
     input.addEventListener('keydown', event => { if (event.key === 'Enter') input.blur(); });
   });
-  // Divisória: enquanto arrasta, as páginas somem e aparece uma prévia dos tamanhos.
   layer.addEventListener('pointerdown', event => {
     if (!event.target.classList.contains('divider') || event.button !== 0) return;
     event.preventDefault();
@@ -219,6 +222,18 @@ if (api) {
     document.querySelectorAll('[data-pref]').forEach(input => { input.checked = Boolean(state[input.dataset.pref]); });
     if (perfFg) perfFg.value = String(state.perfFg ?? 60);
     if (perfBg) perfBg.value = String(state.perfBg ?? 1);
+    if (state.autoReload) {
+      const on = document.getElementById('ar-on'), val = document.getElementById('ar-value'), unit = document.getElementById('ar-unit');
+      on.checked = state.autoReload.on;
+      if (document.activeElement !== val) val.value = state.autoReload.value;
+      if (document.activeElement !== unit) unit.value = state.autoReload.unit;
+      val.disabled = unit.disabled = !state.autoReload.on;
+    }
+    const dps = state.dps || { on: false, status: 'off', hud: [false, false] };
+    const dpsReady = dps.on && dps.status === 'ready';
+    document.body.classList.toggle('no-dps', !dpsReady);
+    document.getElementById('dps-status').textContent = t(`dps_st_${dps.status}`, { version: dps.version || '' });
+    document.getElementById('dps-retry').hidden = !(dps.on && dps.status === 'error');
     document.getElementById('version-line').textContent = `Leveling Dual ${state.version}`;
     const pill = document.getElementById('update');
     pill.hidden = !state.update;
@@ -236,6 +251,7 @@ if (api) {
       account.querySelector('.status').textContent = t(data.status) + usage;
       account.querySelector('.zoom').textContent = `${data.zoom}%`;
       account.querySelector('.mute').textContent = data.muted ? t('unmute') : t('mute');
+      account.querySelector('.dps').classList.toggle('selected', Boolean(dps.hud?.[i]));
       account.querySelector('.expand').textContent = state.mode === (i ? 'two' : 'one') ? t('back') : t('expand');
     });
     if (!document.getElementById('options-box').hidden) { drawCustomizer(state); updateCredentials(state); }

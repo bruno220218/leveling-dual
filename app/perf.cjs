@@ -1,8 +1,5 @@
 'use strict';
 
-// Limitador de requestAnimationFrame injetado em cada página do jogo.
-// A página continua com o loop vivo (timers e rede intactos); só a taxa de
-// desenho muda. Alvo em window.__LD_FPS; 0 segura os callbacks até voltar.
 const LIMITER_SOURCE = `(function () {
   if (window.__LD_LIMITER__) return;
   window.__LD_LIMITER__ = true;
@@ -109,8 +106,6 @@ function normalizeFps(value, fallback, allowed) {
   return number;
 }
 
-// A conta só roda no FPS de foco quando a janela que a contém está visível,
-// focada, acordada e a própria conta está na tela.
 function fpsForView({ enabled = true, foreground = 60, background = 1,
   focused = false, visible = true, minimized = false, locked = false, hidden = false } = {}) {
   if (!enabled) return foreground;

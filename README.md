@@ -32,6 +32,7 @@
 | 🌎 **Três idiomas** | Português, inglês e espanhol, trocando pelas bandeirinhas da barra. |
 | ⧉ **Janelinha flutuante** | Leva uma conta para uma janela pequena por cima de tudo, para acompanhar enquanto usa outro programa. A outra conta continua rodando. |
 | ⟳ **Recarregar as duas** | Reabre o jogo nas duas contas de uma vez. |
+| ⚔️ **Medidor de DPS** | Traz o [DPS Meter Lite](https://chromewebstore.google.com/detail/haiokinkfpmnjmmihpbemoohhkclkdop) (extensão gratuita feita por **ds_**) direto nas duas contas. O app baixa a versão oficial da Chrome Web Store, confere a assinatura e atualiza sozinho. Botão **DPS** liga o medidor no jogo; 📊 abre o painel completo. |
 | 📊 **Uso de CPU e memória** | Mostra quanto cada conta está consumindo. Fica desligado até você ligar nas Opções. |
 | 🔔 **Aviso de versão nova** | Ao abrir, avisa quando sair uma versão nova aqui nas Releases. Não baixa nada sozinho. |
 | 🎚️ **Controles por conta** | Nome, zoom, som e recarregar em cada lado. A segunda conta começa sem som. |

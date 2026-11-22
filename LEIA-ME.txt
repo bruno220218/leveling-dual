@@ -1,12 +1,12 @@
 LEVELING DUAL — DUAS CONTAS EM UMA JANELA
-Versão 1.5.0 — Windows 10/11 (64 bits), macOS (Intel e Apple Silicon), Linux e Android
+Versão 1.7.0 — Windows 10/11 (64 bits), macOS (Intel e Apple Silicon), Linux e Android
 
 BAIXAR
 https://github.com/bruno220218/leveling-dual/releases
 - Windows: Leveling-Dual-Windows-x64.zip
 - macOS: Leveling-Dual-macOS-universal.zip
 - Linux: Leveling-Dual-Linux-x64.deb (Ubuntu/Debian) ou Leveling-Dual-Linux-x64.tar.gz
-- Android: LevelingDual-Android-1.0.0.apk
+- Android: LevelingDual-Android-1.1.0.apk
 
 COMO ABRIR NO WINDOWS
 1. Extraia o ZIP inteiro para uma pasta.
@@ -55,8 +55,25 @@ COMO USAR
 - Esconder barra: libera o espaço da barra de cima e do rodapé.
 - Janelinha: leva a conta ativa para uma janela pequena por cima de tudo.
 - Bandeiras: trocam o idioma do aplicativo (português, inglês ou espanhol).
-- Opções: idioma, cor e ícone de cada conta, uso de CPU e memória, pergunta
-  antes de fechar e aviso de versão nova.
+- Opções: idioma, cor e ícone de cada conta, uso de CPU, memória e FPS,
+  pergunta antes de fechar, aviso de versão nova, desempenho e login automático.
+- Medidor de DPS: o app traz a extensão gratuita "Leveling Idle 2D — DPS Meter
+  Lite", feita por ds_. Na primeira abertura ele baixa a versão oficial da
+  Chrome Web Store, confere a assinatura e recarrega as contas. Depois disso
+  procura versão nova sozinho a cada 12 horas.
+  Botão DPS de cada conta: mostra ou esconde o medidor flutuante dentro do jogo
+  (ele volta sozinho depois de recarregar). Botão 📊: abre o painel completo da
+  extensão para aquela conta. Dá para desligar em Opções → Medidor de DPS.
+- Recarregar automático (Opções): recarrega as duas contas a cada X minutos
+  ou horas, para liberar a memória que o jogo acumula com o tempo. A conta 2
+  recarrega 20 s depois da conta 1. Vem desligado.
+- Desempenho (Opções): o modo economia vem ligado. A conta em foco roda a 60
+  FPS (ou 30) e a que está em segundo plano ou minimizada cai para 1 FPS (dá
+  para escolher 0, 2, 5 ou 10), sem encerrar a sessão. O áudio do segundo
+  plano pode ficar silenciado.
+- Login automático (Opções): ao entrar manualmente, o app pergunta se quer
+  salvar o login daquela conta. Você também pode preencher nas Opções. Na
+  próxima vez, o app preenche e entra sozinho. Dá para apagar quando quiser.
 - O aplicativo lembra tamanho e posição da janela, divisão, nomes, zoom, som,
   idioma, cores e ícones.
 
@@ -86,24 +103,15 @@ na pasta de dados do aplicativo, fora da pasta extraída:
 - Windows: %APPDATA%\Leveling Dual
 - macOS: ~/Library/Application Support/Leveling Dual
 - Linux: ~/.config/Leveling Dual
-Para economizar CPU/GPU, quando a janela não está em foco as contas são
-limitadas a 1 fps; ao voltar ao foco, rodam a 60 fps (ou 30, configurável em
-Opções > Desempenho). O jogo continua rodando e a sessão não é encerrada.
-A opção experimental de pausar o desenho quando minimizado fica desligada
-por padrão.
+O jogo pode pedir login novamente quando sua sessão expirar.
 
-O jogo pode pedir login novamente quando sua sessão expirar. Quando você entrar
-manualmente, o aplicativo pergunta se quer salvar o login; se aceitar, ele
-preenche o formulário e entra sozinho na próxima vez. Você também pode editar
-em Opções > Login automático. As credenciais ficam criptografadas pelo
-armazenamento seguro do sistema (Keychain/DPAPI/libsecret), nunca em texto
-puro, e podem ser apagadas a qualquer momento. Se o Linux não tiver chaveiro
-disponível ou ele estiver trancado (comum em XFCE/xrdp), o aplicativo avisa e
-salva o login ofuscado em um arquivo acessível só pela sua conta; desbloqueie
-o chaveiro do sistema para usar a criptografia real.
+O login automático fica no arquivo credentials.bin dessa mesma pasta,
+criptografado pelo sistema (DPAPI no Windows, Keychain no macOS, chaveiro no
+Linux), nunca em texto puro. Qualquer programa rodando no seu usuário pode pedir
+ao sistema para descriptografar; se não quiser esse risco, não salve o login.
 
 As duas sessões compartilham a conexão/IP do seu computador. Não há proxy,
-macros, cliques automáticos, sincronização de comandos ou alterações no jogo.
+macros, cliques automáticos (fora preencher o login que você salvou), sincronização de comandos ou alterações no jogo.
 O teclado controla somente a conta que você clicar. Links para fora do jogo
 abrem no seu navegador padrão.
 
@@ -121,6 +129,9 @@ Tecnologia: Electron / WebContentsView (desktop) e WebView nativo (Android).
 Cada conta usa uma partition persistente exclusiva. O site remoto não recebe
 preload nem acesso ao Node.js. Sandbox e segurança web permanecem habilitados.
 O preload existe somente na barra local de controles.
+A extensão DPS Meter Lite não faz parte do código: app/extension.cjs baixa o
+.crx da Chrome Web Store no computador do usuário, verifica a assinatura RSA
+e o id (haiokinkfpmnjmmihpbemoohhkclkdop) e extrai em <dados do app>/extensions.
 
 Requisitos: Node.js 22.12 ou mais novo. Para o .deb, o script usa ar e tar (macOS ou Linux).
 npm test ............ testes das duas sessões e da interface
@@ -134,6 +145,15 @@ npm run build:android  gera um APK de teste (precisa do Android SDK)
 A versão Android fica na pasta android/ e usa Gradle. Para publicar o APK de
 release, assine com a mesma chave das versões anteriores.
 
+AVISO DE ATUALIZAÇÃO POR SISTEMA
+Cada release deve levar um arquivo versoes.json com a versão de cada sistema.
+O aplicativo compara a versão do próprio sistema com a desse arquivo; assim uma
+correção só do Linux não avisa quem usa Windows ou macOS. Para gerar:
+  node scripts/versoes.mjs windows=1.7.0 macos=1.4.1 linux=1.4.1 android=1.1.0
+e anexe release/versoes.json na release. Se um sistema não mudou, repita a
+versão anterior dele. Release sem versoes.json usa o número da tag, mas só avisa
+os sistemas que têm um download nela.
+
 CRÉDITOS
-Criado por bruno220218. Colaborador: SkymerLight.
+Criado por bruno220218. Colaboradores: SkymerLight e joaovili.
 Aplicativo independente, sem vínculo oficial com o Leveling Idle.

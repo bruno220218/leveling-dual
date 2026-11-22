@@ -1,8 +1,5 @@
 'use strict';
 
-// Script injetado no jogo para preencher o formulário de login.
-// Só age quando o formulário real do Leveling Idle está na página; se a conta
-// já estiver logada, não encontra o formulário e desiste sozinho.
 function buildCredScript(cred) {
   const data = JSON.stringify({
     user: String(cred.user || ''),
@@ -57,9 +54,6 @@ function buildCredScript(cred) {
 })();`;
 }
 
-// Detecta um login manual no formulário do jogo. Só entrega as credenciais
-// ao processo principal depois que o formulário some (login aceito), para não
-// salvar senha errada. O auto-login é ignorado.
 function buildCaptureScript() {
   return `(function () {
   if (window.__LD_CRED_WATCH__) return;

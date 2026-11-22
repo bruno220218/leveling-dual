@@ -24,8 +24,8 @@
     </div>
   </header>
   <section class="controls" aria-label="Controles das contas">
-    <div class="account" data-index="0"><button class="badge" data-action="customize" data-i18n-title="customize" title="Cor e ícone da conta"><span class="icon">⚔️</span><small>01</small></button><div class="identity"><input class="name" aria-label="Conta 1" maxlength="24" value="Conta 1"><span class="status">Abrindo jogo…</span></div><div class="actions"><button data-action="zoom" data-value="-1" data-i18n-aria="zoom_out" aria-label="Diminuir zoom">−</button><span class="zoom">80%</span><button data-action="zoom" data-value="1" data-i18n-aria="zoom_in" aria-label="Aumentar zoom">+</button><span class="separator"></span><button data-action="mute" class="mute">Silenciar</button><button data-action="reload" data-i18n="reload">Recarregar</button><button data-action="expand" class="expand" title="Ctrl+Shift+1">Ampliar</button><button data-action="pipOpen" class="pip-open" data-i18n-title="pip_open" title="Abrir na janelinha">⧉</button></div></div>
-    <div class="account" data-index="1"><button class="badge" data-action="customize" data-i18n-title="customize" title="Cor e ícone da conta"><span class="icon">🛡️</span><small>02</small></button><div class="identity"><input class="name" aria-label="Conta 2" maxlength="24" value="Conta 2"><span class="status">Abrindo jogo…</span></div><div class="actions"><button data-action="zoom" data-value="-1" data-i18n-aria="zoom_out" aria-label="Diminuir zoom">−</button><span class="zoom">80%</span><button data-action="zoom" data-value="1" data-i18n-aria="zoom_in" aria-label="Aumentar zoom">+</button><span class="separator"></span><button data-action="mute" class="mute">Ativar som</button><button data-action="reload" data-i18n="reload">Recarregar</button><button data-action="expand" class="expand" title="Ctrl+Shift+2">Ampliar</button><button data-action="pipOpen" class="pip-open" data-i18n-title="pip_open" title="Abrir na janelinha">⧉</button></div></div>
+    <div class="account" data-index="0"><button class="badge" data-action="customize" data-i18n-title="customize" title="Cor e ícone da conta"><span class="icon">⚔️</span><small>01</small></button><div class="identity"><input class="name" aria-label="Conta 1" maxlength="24" value="Conta 1"><span class="status">Abrindo jogo…</span></div><div class="actions"><button data-action="zoom" data-value="-1" data-i18n-aria="zoom_out" aria-label="Diminuir zoom">−</button><span class="zoom">80%</span><button data-action="zoom" data-value="1" data-i18n-aria="zoom_in" aria-label="Aumentar zoom">+</button><span class="separator"></span><button data-action="mute" class="mute">Silenciar</button><button data-action="reload" data-i18n="reload">Recarregar</button><button data-action="expand" class="expand" title="Ctrl+Shift+1">Ampliar</button><button data-action="pipOpen" class="pip-open" data-i18n-title="pip_open" title="Abrir na janelinha">⧉</button><span class="separator dps-only"></span><button data-action="dpsHud" class="dps dps-only" data-i18n-title="dps_tip" title="Mostrar / esconder o medidor de DPS no jogo">DPS</button><button data-action="dpsPanel" class="dps-panel dps-only" data-i18n-title="dps_panel_tip" title="Painel completo do DPS Meter">📊</button></div></div>
+    <div class="account" data-index="1"><button class="badge" data-action="customize" data-i18n-title="customize" title="Cor e ícone da conta"><span class="icon">🛡️</span><small>02</small></button><div class="identity"><input class="name" aria-label="Conta 2" maxlength="24" value="Conta 2"><span class="status">Abrindo jogo…</span></div><div class="actions"><button data-action="zoom" data-value="-1" data-i18n-aria="zoom_out" aria-label="Diminuir zoom">−</button><span class="zoom">80%</span><button data-action="zoom" data-value="1" data-i18n-aria="zoom_in" aria-label="Aumentar zoom">+</button><span class="separator"></span><button data-action="mute" class="mute">Ativar som</button><button data-action="reload" data-i18n="reload">Recarregar</button><button data-action="expand" class="expand" title="Ctrl+Shift+2">Ampliar</button><button data-action="pipOpen" class="pip-open" data-i18n-title="pip_open" title="Abrir na janelinha">⧉</button><span class="separator dps-only"></span><button data-action="dpsHud" class="dps dps-only" data-i18n-title="dps_tip" title="Mostrar / esconder o medidor de DPS no jogo">DPS</button><button data-action="dpsPanel" class="dps-panel dps-only" data-i18n-title="dps_panel_tip" title="Painel completo do DPS Meter">📊</button></div></div>
     <button id="show-bar" data-i18n-title="show_bar" title="Mostrar a barra (Ctrl+B)">▾</button>
   </section>
   <main><div data-i18n="preparing">Preparando as duas sessões do jogo…</div></main>
@@ -65,6 +65,16 @@
       <label class="toggle"><input type="checkbox" data-pref="usage"> <span data-i18n="opt_usage"></span></label>
       <label class="toggle"><input type="checkbox" data-pref="confirmClose"> <span data-i18n="opt_confirm"></span></label>
       <label class="toggle"><input type="checkbox" data-pref="updates"> <span data-i18n="opt_updates"></span></label>
+      <div class="toggle ar-row">
+        <label><input type="checkbox" id="ar-on"> <span data-i18n="opt_autoreload"></span></label>
+        <input type="number" id="ar-value" min="1" max="2880" step="1" aria-label="Tempo">
+        <select id="ar-unit"><option value="min" data-i18n="unit_min">minutos</option><option value="h" data-i18n="unit_h">horas</option></select>
+      </div>
+      <p class="muted ar-hint" data-i18n="opt_autoreload_hint"></p>
+      <h3 data-i18n="opt_dps">Medidor de DPS</h3>
+      <label class="toggle"><input type="checkbox" data-pref="dpsEnabled"> <span data-i18n="opt_dps_enabled"></span></label>
+      <p class="muted"><span id="dps-status"></span> <button id="dps-retry" class="link" data-i18n="dps_retry" hidden>Tentar de novo</button></p>
+      <p class="muted"><span data-i18n="opt_dps_hint"></span> <button id="dps-store" class="link" data-i18n="dps_store">Ver na Chrome Web Store</button></p>
       <h3 data-i18n="opt_perf">Desempenho</h3>
       <label class="toggle"><input type="checkbox" data-pref="perfEnabled"> <span data-i18n="opt_perf_enabled"></span></label>
       <label class="toggle"><span data-i18n="opt_fg_fps"></span> <select id="perf-fg"><option value="60">60</option><option value="30">30</option></select></label>
@@ -77,14 +87,14 @@
       <div class="cred-list">
         <div class="cred">
           <div class="cred-title"><b id="cred-name-0">Conta 1</b><span class="cred-status" id="cred-status-0"></span></div>
-          <label class="cred-field"><span data-i18n="cred_user"></span><input id="cred-user-0" maxlength="16" pattern="[a-z0-9_-]{3,16}" autocomplete="off" spellcheck="false"></label>
+          <label class="cred-field"><span data-i18n="cred_user"></span><input id="cred-user-0" maxlength="16" pattern="[A-Za-z0-9_-]{3,16}" autocomplete="off" spellcheck="false"></label>
           <label class="cred-field"><span data-i18n="cred_pass"></span><input id="cred-pass-0" type="password" maxlength="128" autocomplete="new-password"></label>
           <label class="toggle"><input type="checkbox" id="cred-auto-0" checked> <span data-i18n="cred_auto"></span></label>
           <div class="cred-actions"><button id="cred-save-0" class="selected" data-i18n="cred_save"></button><button id="cred-clear-0" data-i18n="cred_clear"></button></div>
         </div>
         <div class="cred">
           <div class="cred-title"><b id="cred-name-1">Conta 2</b><span class="cred-status" id="cred-status-1"></span></div>
-          <label class="cred-field"><span data-i18n="cred_user"></span><input id="cred-user-1" maxlength="16" pattern="[a-z0-9_-]{3,16}" autocomplete="off" spellcheck="false"></label>
+          <label class="cred-field"><span data-i18n="cred_user"></span><input id="cred-user-1" maxlength="16" pattern="[A-Za-z0-9_-]{3,16}" autocomplete="off" spellcheck="false"></label>
           <label class="cred-field"><span data-i18n="cred_pass"></span><input id="cred-pass-1" type="password" maxlength="128" autocomplete="new-password"></label>
           <label class="toggle"><input type="checkbox" id="cred-auto-1" checked> <span data-i18n="cred_auto"></span></label>
           <div class="cred-actions"><button id="cred-save-1" class="selected" data-i18n="cred_save"></button><button id="cred-clear-1" data-i18n="cred_clear"></button></div>

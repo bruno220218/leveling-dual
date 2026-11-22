@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, WebContentsView, ipcMain, Menu, dialog, powerSaveBlocker, powerMonitor, safeStorage, shell, screen } = require('electron');
+const { app, BrowserWindow, WebContentsView, ipcMain, Menu, dialog, powerSaveBlocker, powerMonitor, safeStorage, shell, screen, session } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const { pathToFileURL } = require('node:url');
@@ -7,6 +7,7 @@ const { getLayout, ratioFromPointer, isGameUrl, isWebUrl } = require('./layout.c
 const { LIMITER_SOURCE, normalizeFps, fpsForView, FPS_FOREGROUND, FPS_BACKGROUND } = require('./perf.cjs');
 const { buildCredScript, buildCaptureScript } = require('./creds.cjs');
 const I18N = require('./i18n.js');
+const DPS = require('./extension.cjs');
 
 const IS_MAC = process.platform === 'darwin';
 const IS_LINUX = process.platform === 'linux';
@@ -17,45 +18,35 @@ const UI_FILE = path.join(__dirname, 'index.html');
 const UI_URL = pathToFileURL(UI_FILE).href;
 const PIP_FILE = path.join(__dirname, 'pip.html');
 const PIP_URL = pathToFileURL(PIP_FILE).href;
-const PIP_HEAD = 30; // faixa de cima da janelinha (nome da conta e botões)
+const PIP_HEAD = 30;
 const MODES = ['dual', 'stack', 'one', 'two'];
 const LANGS = ['pt', 'en', 'es'];
 const COLORS = ['#409eec', '#8b7bff', '#3ccf91', '#f5a524', '#f25c7a', '#e5484d', '#f0d43a', '#38c7d8'];
 const ICONS = ['⚔️', '🛡️', '🏹', '🔮', '🗡️', '👑', '🐉', '💀', '⭐', '🔥', '🌙', '💎'];
 app.setName('Leveling Dual');
-// Modo de teste (variável LD_SHOT): usa uma pasta temporária, salva prints da janela e fecha.
 const SHOT = process.env.LD_SHOT || '';
 if (SHOT) app.setPath('userData', path.join(SHOT, 'userdata'));
 const PERF_DEFAULTS = { enabled: true, fgFps: 60, bgFps: 1, muteBg: true, pauseHidden: false };
-// A opção "pausar quando escondido" muda switches do Chromium, então é lida
-// antes do app ficar pronto. As demais opções são lidas em loadPrefs().
 function readStartupPerf() {
   const out = { ...PERF_DEFAULTS };
   try {
     const saved = JSON.parse(fs.readFileSync(path.join(app.getPath('userData'), 'preferences.json'), 'utf8'));
     if (typeof saved?.perf?.pauseHidden === 'boolean') out.pauseHidden = saved.perf.pauseHidden;
     if (typeof saved?.perf?.enabled === 'boolean') out.enabled = saved.perf.enabled;
-  } catch { /* Primeira execução. */ }
+  } catch {  }
   if (process.env.LD_PAUSE_HIDDEN !== undefined) out.pauseHidden = process.env.LD_PAUSE_HIDDEN === '1';
   if (process.env.LD_PERF !== undefined) out.enabled = process.env.LD_PERF !== '0';
   return out;
 }
 const STARTUP_PERF = readStartupPerf();
-// Disables Chromium's optional timer throttling; never changes game logic.
 app.commandLine.appendSwitch('disable-background-timer-throttling');
-// A Fase 0b deixa o Chromium esconder/depriorizar a página quando minimizada.
-// Fora dela, os switches mantêm o loop vivo para o limitador de FPS controlar.
 if (!(STARTUP_PERF.enabled && STARTUP_PERF.pauseHidden)) {
   app.commandLine.appendSwitch('disable-renderer-backgrounding');
   app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
 }
-// Muitas VMs e servidores Linux bloqueiam WebGL por falta de GPU; libera o fallback por software.
 if (IS_LINUX) {
   app.commandLine.appendSwitch('enable-unsafe-swiftshader');
   app.commandLine.appendSwitch('ignore-gpu-blocklist');
-  // XFCE e ambientes sem DE costumam ter o chaveiro trancado (xrdp) e o
-  // Electron travaria esperando o desbloqueio. Nesses casos usa o backend
-  // básico e o initCredentials liga o fallback de texto do safeStorage.
   const desktop = String(process.env.XDG_CURRENT_DESKTOP || '').toUpperCase();
   if (!/GNOME|KDE|CINNAMON|DEEPIN|PANTHEON|UKUI|UNITY/.test(desktop)) {
     app.commandLine.appendSwitch('password-store', 'basic');
@@ -65,15 +56,24 @@ let main;
 let views = [];
 let blocker;
 let saving = false;
-let focused = 0;      // conta que recebe o teclado
-let dragging = false; // divisória sendo arrastada (as páginas ficam escondidas)
-let overlay = false;  // janela de atalhos/opções aberta (as páginas ficam escondidas)
-let current = null;   // último layout calculado
-let update = null;    // versão nova encontrada nas releases
-let pip = null;       // janelinha flutuante: { win, index } (a conta mostrada sai da janela grande e vai para ela)
+let focused = 0;
+let dragging = false;
+let overlay = false;
+let current = null;
+let update = null;
+let pip = null;
 let usageTimer;
 let perfTimer;
-let locked = false;   // tela bloqueada/suspensa: tudo em FPS de segundo plano
+let autoReloadTimer;
+let autoReloadSecond;
+let locked = false;
+let dpsTimer;
+let dpsPollTimer;
+let dpsBusy = null;
+const dps = { status: 'off', version: '', loaded: '', id: '' };
+const dpsPanels = [null, null];
+const hudRestored = [false, false];
+const hudBusy = [false, false];
 const lastFps = [null, null];
 const lastMuted = [null, null];
 let credentials = [null, null];
@@ -82,12 +82,11 @@ let credBackend = '';
 let credInsecure = false;
 const credWatch = [null, null];
 const credBusy = [false, false];
-// O jogo permite no máximo 2 contas por pessoa: o aplicativo nunca abre uma terceira.
 let prefs = { names: ['Conta 1', 'Conta 2'], zoom: [0.8, 0.8], muted: [false, true],
   colors: [COLORS[0], COLORS[1]], icons: [ICONS[0], ICONS[1]],
   mode: 'dual', split: 'dual', ratio: { x: 0.5, y: 0.5 }, compact: false, bounds: null, maximized: false,
   lang: null, usage: false, confirmClose: true, updates: true, skipVersion: '', pipBounds: null,
-  perf: { ...PERF_DEFAULTS } };
+  perf: { ...PERF_DEFAULTS }, autoReload: { on: false, value: 2, unit: 'h' }, dps: { on: true, hud: [false, false] } };
 const states = [{ status: 'st_opening' }, { status: 'st_opening' }];
 const t = key => (I18N[prefs.lang] || I18N.pt)[key] || I18N.pt[key] || key;
 function prefsFile() { return path.join(app.getPath('userData'), 'preferences.json'); }
@@ -107,6 +106,11 @@ function loadPrefs() {
     if (LANGS.includes(saved.lang)) prefs.lang = saved.lang;
     for (const k of ['compact', 'maximized', 'usage']) prefs[k] = saved[k] === true;
     for (const k of ['confirmClose', 'updates']) prefs[k] = saved[k] !== false;
+    prefs.autoReload = cleanAutoReload(saved.autoReload);
+    if (saved.dps && typeof saved.dps === 'object') {
+      if (typeof saved.dps.on === 'boolean') prefs.dps.on = saved.dps.on;
+      for (let i = 0; i < 2; i++) prefs.dps.hud[i] = saved.dps.hud?.[i] === true;
+    }
     if (typeof saved.skipVersion === 'string') prefs.skipVersion = saved.skipVersion.slice(0, 20);
     const okBounds = b => b && ['x', 'y', 'width', 'height'].every(k => Number.isFinite(b[k]));
     if (okBounds(saved.bounds)) prefs.bounds = saved.bounds;
@@ -118,7 +122,7 @@ function loadPrefs() {
       prefs.perf.fgFps = normalizeFps(saved.perf.fgFps, PERF_DEFAULTS.fgFps, FPS_FOREGROUND);
       prefs.perf.bgFps = normalizeFps(saved.perf.bgFps, PERF_DEFAULTS.bgFps, FPS_BACKGROUND);
     }
-  } catch { /* First run uses defaults. */ }
+  } catch {  }
   if (process.env.LD_PERF !== undefined) prefs.perf.enabled = process.env.LD_PERF !== '0';
   if (process.env.LD_FG_FPS !== undefined) prefs.perf.fgFps = normalizeFps(process.env.LD_FG_FPS, PERF_DEFAULTS.fgFps, FPS_FOREGROUND);
   if (process.env.LD_BG_FPS !== undefined) prefs.perf.bgFps = normalizeFps(process.env.LD_BG_FPS, PERF_DEFAULTS.bgFps, FPS_BACKGROUND);
@@ -131,11 +135,9 @@ function savePrefs() {
   try {
     fs.writeFileSync(prefsFile() + '.tmp', JSON.stringify(prefs, null, 2));
     fs.renameSync(prefsFile() + '.tmp', prefsFile());
-  } catch { /* The game sessions remain managed independently by Chromium. */ }
+  } catch {  }
 }
 function credFile() { return path.join(app.getPath('userData'), 'credentials.bin'); }
-// Credenciais ficam criptografadas pelo safeStorage (Keychain/DPAPI/libsecret).
-// Nunca são gravadas em texto puro nem enviadas de volta para a interface.
 function initCredentials() {
   credAvailable = false;
   credBackend = '';
@@ -143,8 +145,6 @@ function initCredentials() {
   try {
     credAvailable = Boolean(safeStorage?.isEncryptionAvailable?.());
     if (!credAvailable && process.platform === 'linux' && safeStorage?.setUsePlainTextEncryption) {
-      // Sem chaveiro disponível o Electron retorna false mesmo com backend
-      // basic_text; isto liga o modo de texto (chave fixa) para ainda salvar.
       safeStorage.setUsePlainTextEncryption(true);
       credAvailable = Boolean(safeStorage.isEncryptionAvailable());
       if (credAvailable) { credBackend = 'basic_text'; credInsecure = true; }
@@ -152,8 +152,6 @@ function initCredentials() {
     if (credAvailable && process.platform === 'linux') {
       const backend = String(safeStorage.getSelectedStorageBackend?.() || '');
       credBackend = backend || credBackend || 'unknown';
-      // Sem chaveiro (libsecret/gnome-keyring) o Electron usa basic_text, que
-      // ofusca com chave fixa. Ainda permite salvar, mas avisa que não é seguro.
       credInsecure = credInsecure || !backend || backend === 'basic_text';
     } else if (credAvailable) {
       credBackend = process.platform === 'darwin' ? 'keychain' : process.platform === 'win32' ? 'dpapi' : 'secret-service';
@@ -170,7 +168,7 @@ function initCredentials() {
         credentials[i] = { user: item.user.slice(0, 16), pass: item.pass.slice(0, 128), auto: item.auto !== false };
       }
     }
-  } catch { /* Primeira vez ou chave antiga: o usuário digita de novo. */ }
+  } catch {  }
 }
 function saveCredentials() {
   if (!credAvailable) return false;
@@ -184,7 +182,7 @@ function saveCredentials() {
     const tmp = credFile() + '.tmp';
     fs.writeFileSync(tmp, encrypted, { mode: 0o600 });
     fs.renameSync(tmp, credFile());
-    try { fs.chmodSync(credFile(), 0o600); } catch { /* Windows não usa chmod. */ }
+    try { fs.chmodSync(credFile(), 0o600); } catch {  }
     return true;
   } catch { return false; }
 }
@@ -202,7 +200,7 @@ function installCapture(wc) {
 function handleCapturedCredentials(i, capture) {
   const user = String(capture.user || '').trim().slice(0, 16);
   const pass = String(capture.pass || '').slice(0, 128);
-  if (!credAvailable || !/^[a-z0-9_-]{3,16}$/.test(user) || !pass) return;
+  if (!credAvailable || !/^[A-Za-z0-9_-]{3,16}$/.test(user) || !pass) return;
   if (!main || main.isDestroyed() || !main.isFocused()) return;
   const existing = credentials[i];
   if (existing && existing.user === user && existing.pass === pass) return;
@@ -235,21 +233,22 @@ function startCredWatch(i) {
       const capture = await wc.executeJavaScript('window.__LD_CRED_CAPTURE__ || null');
       if (!capture || !capture.user || !capture.pass) return;
       if (!credAvailable) { await wc.executeJavaScript('window.__LD_CRED_CAPTURE__ = null'); return; }
-      // Se a janela perdeu o foco, mantém a captura para perguntar quando voltar.
       if (!main || main.isDestroyed() || !main.isFocused()) return;
       await wc.executeJavaScript('window.__LD_CRED_CAPTURE__ = null');
       handleCapturedCredentials(i, capture);
-    } catch { /* página recarregando */ }
+    } catch {  }
     finally { credBusy[i] = false; }
   }, 1000);
 }
 function sendState() {
   if (!main || main.isDestroyed()) return;
   const state = { mode: prefs.mode, compact: prefs.compact, focused, dragging, layout: current,
-    lang: prefs.lang, pip: pip ? pip.index : -1, usage: prefs.usage, confirmClose: prefs.confirmClose, updates: prefs.updates,
+    lang: prefs.lang, pip: pip ? pip.index : -1, usage: prefs.usage, confirmClose: prefs.confirmClose, updates: prefs.updates, autoReload: prefs.autoReload,
     perfEnabled: prefs.perf.enabled, perfMuteBg: prefs.perf.muteBg, perfPauseHidden: prefs.perf.pauseHidden,
     perfFg: prefs.perf.fgFps, perfBg: prefs.perf.bgFps, perfPauseHiddenActive: STARTUP_PERF.pauseHidden,
     credAvailable, credBackend, credInsecure,
+    dpsEnabled: prefs.dps.on,
+    dps: { on: prefs.dps.on, status: dps.status, version: dps.loaded || dps.version, hud: [...prefs.dps.hud] },
     credentials: credentials.map(c => c ? { has: true, user: c.user, auto: c.auto !== false } : { has: false, user: '', auto: true }),
     update, version: app.getVersion?.() || '', choices: { colors: COLORS, icons: ICONS },
     accounts: states.map((s, i) => ({ status: s.status, usage: prefs.usage ? s.usage || null : null, name: prefs.names[i],
@@ -276,7 +275,6 @@ function setViewMuted(i, muted) {
   lastMuted[i] = muted;
   wc.setAudioMuted(muted);
 }
-// Aplica o FPS/mudo de cada conta conforme a janela que a contém e o layout.
 function applyPerf() {
   if (!main || main.isDestroyed()) return;
   const perf = prefs.perf;
@@ -301,7 +299,7 @@ function layout() {
   const [w, h] = main.getContentSize();
   current = getLayout(w, h, prefs.mode, { ratio: prefs.ratio, compact: prefs.compact });
   current.views.forEach((rect, i) => {
-    if (!views[i] || (pip && pip.index === i)) return; // a conta da janelinha é arrumada por fitPip
+    if (!views[i] || (pip && pip.index === i)) return;
     if (rect) views[i].setBounds(rect);
     views[i].setVisible(Boolean(rect) && !dragging && !overlay);
   });
@@ -332,8 +330,6 @@ function toggleMute(i) {
   views[i].webContents.setAudioMuted(prefs.muted[i]);
   lastMuted[i] = prefs.muted[i];
 }
-// Janelinha flutuante: a conta escolhida vai para uma janela pequena por cima de tudo e a janela
-// grande é minimizada. A outra conta continua rodando nela. A página não recarrega ao trocar de janela.
 function fitPip() {
   if (!pip || pip.win.isDestroyed()) return;
   const [w, h] = pip.win.getContentSize();
@@ -396,7 +392,6 @@ function swapPip() {
   layout();
 }
 function togglePip() { if (pip) closePip(); else openPip(); }
-// Uso de CPU, memória e FPS real de cada conta (só quando a opção está ligada).
 async function readUsage() {
   const metrics = app.getAppMetrics?.() || [];
   const fps = await Promise.all(views.map(v => Promise.resolve(
@@ -408,17 +403,49 @@ async function readUsage() {
   });
   sendState();
 }
+function cleanAutoReload(v) {
+  const unit = v?.unit === 'min' ? 'min' : 'h';
+  const max = unit === 'h' ? 48 : 48 * 60, min = unit === 'h' ? 1 : 5;
+  const value = Number.isFinite(+v?.value) ? Math.min(max, Math.max(min, Math.round(+v.value))) : (unit === 'h' ? 2 : 120);
+  return { on: v?.on === true, value, unit };
+}
+function setupAutoReload() {
+  clearInterval(autoReloadTimer);
+  clearTimeout(autoReloadSecond);
+  autoReloadTimer = autoReloadSecond = undefined;
+  if (!prefs.autoReload.on) return;
+  const minutes = prefs.autoReload.unit === 'h' ? prefs.autoReload.value * 60 : prefs.autoReload.value;
+  autoReloadTimer = setInterval(() => {
+    loadGame(0);
+    clearTimeout(autoReloadSecond);
+    autoReloadSecond = setTimeout(() => loadGame(1), 20000);
+  }, minutes * 60000);
+}
 function setUsage(value) {
   prefs.usage = value;
   clearInterval(usageTimer);
   usageTimer = undefined;
   if (value) { readUsage(); usageTimer = setInterval(readUsage, 2000); }
 }
-// Aviso de versão nova: consulta as releases públicas do repositório do bruno. Não baixa nada sozinho.
+const PLATFORM = IS_MAC ? 'macos' : IS_LINUX ? 'linux' : 'windows';
+const PLATFORM_ASSET = { windows: /windows|^leveling-dual\.zip$/i, macos: /mac/i, linux: /linux/i }[PLATFORM];
+const VERSION_RE = /^v?\d+\.\d+\.\d+$/;
 function newer(a, b) {
   const pa = String(a).replace(/^v/i, '').split(/[.-]/).map(Number), pb = String(b).replace(/^v/i, '').split(/[.-]/).map(Number);
   for (let i = 0; i < 3; i++) { const x = pa[i] || 0, y = pb[i] || 0; if (x !== y) return x > y; }
   return false;
+}
+async function platformVersion(release) {
+  const file = (release.assets || []).find(a => a.name === 'versoes.json');
+  if (!file) return (release.assets || []).some(a => PLATFORM_ASSET.test(a.name)) ? release.tag_name : null;
+  const url = String(file.browser_download_url || '');
+  if (!url.startsWith(RELEASES_PAGE + '/download/')) return null;
+  const r = await fetch(url, { headers: { 'User-Agent': 'LevelingDual' } });
+  if (!r.ok) return null;
+  const text = await r.text();
+  if (text.length > 10000) return null;
+  const version = JSON.parse(text)?.[PLATFORM];
+  return typeof version === 'string' && VERSION_RE.test(version.trim()) ? version.trim() : null;
 }
 async function checkUpdates() {
   if (!prefs.updates || SHOT || typeof fetch !== 'function') return;
@@ -427,11 +454,139 @@ async function checkUpdates() {
     if (!r.ok) return;
     const best = (await r.json()).filter(rel => !rel.draft && /^v?\d+\.\d+/.test(rel.tag_name || ''))
       .reduce((top, rel) => (!top || newer(rel.tag_name, top.tag_name) ? rel : top), null);
-    if (!best || !newer(best.tag_name, app.getVersion()) || best.tag_name === prefs.skipVersion) return;
+    if (!best) return;
+    const version = await platformVersion(best);
+    if (!version || !newer(version, app.getVersion())) return;
+    const tag = 'v' + version.replace(/^v/i, '');
+    if (tag === prefs.skipVersion) return;
     const url = String(best.html_url || '').startsWith(RELEASES_PAGE + '/') ? best.html_url : RELEASES_PAGE;
-    update = { version: best.tag_name.replace(/^v/i, ''), tag: best.tag_name, url };
+    update = { version: tag.slice(1), tag, url };
     sendState();
-  } catch { /* Sem internet: tenta de novo mais tarde. */ }
+  } catch {  }
+}
+// ---------- Medidor de DPS (extensão DPS Meter Lite, por ds_, baixada da Chrome Web Store) ----------
+const dpsBase = () => path.join(app.getPath('userData'), 'extensions');
+const accountSession = i => session.fromPartition(`persist:leveling-account-${i + 1}`);
+const extApi = ses => ses.extensions || ses;
+// Extensão carregada de pasta ganha um id derivado do caminho, por isso o id usado é o que o Electron devolve.
+function removeDpsFrom(api) {
+  try {
+    for (const ext of api.getAllExtensions?.() || []) {
+      if (ext.id === dps.id || String(ext.path || '').includes(DPS.DPS_ID)) api.removeExtension(ext.id);
+    }
+  } catch {  }
+}
+async function loadDpsInto(dir, version) {
+  let id = '';
+  for (let i = 0; i < 2; i++) {
+    const api = extApi(accountSession(i));
+    removeDpsFrom(api);
+    const ext = await api.loadExtension(dir, { allowFileAccess: false });
+    id = ext?.id || id;
+  }
+  dps.id = id;
+  dps.loaded = version;
+}
+function unloadDps() {
+  for (let i = 0; i < 2; i++) removeDpsFrom(extApi(accountSession(i)));
+  dps.loaded = '';
+  dps.id = '';
+  for (let i = 0; i < 2; i++) closeDpsPanel(i);
+}
+// Na abertura do app: carrega a versão já baixada antes das páginas do jogo abrirem.
+async function loadInstalledDps() {
+  if (!prefs.dps.on || process.env.LD_NO_DPS) { dps.status = 'off'; return; }
+  const local = DPS.installedDir(dpsBase());
+  if (!local) { dps.status = 'downloading'; return; }
+  try { await loadDpsInto(local.dir, local.version); dps.status = 'ready'; dps.version = local.version; }
+  catch (err) { dps.status = 'error'; if (process.env.LD_DPS_DEBUG) console.log('[dps] load', err); }
+}
+// Procura versão nova na loja. Na primeira instalação recarrega as contas para a extensão entrar.
+function refreshDps() {
+  if (dpsBusy) return dpsBusy;
+  dpsBusy = (async () => {
+    if (!prefs.dps.on || process.env.LD_NO_DPS || typeof fetch !== 'function') return;
+    const hadLoaded = Boolean(dps.loaded);
+    if (!hadLoaded) { dps.status = 'downloading'; sendState(); }
+    try {
+      const result = await DPS.downloadAndInstall(dpsBase(), fetch);
+      if (!prefs.dps.on) return;
+      dps.version = result.version;
+      if (result.updated || !hadLoaded) {
+        await loadDpsInto(result.dir, result.version);
+        DPS.pruneOld(dpsBase(), result.version);
+        if (!hadLoaded) { loadGame(0); loadGame(1); }
+      }
+      dps.status = 'ready';
+    } catch (err) {
+      if (process.env.LD_DPS_DEBUG) console.log('[dps] refresh', err);
+      if (!dps.loaded) dps.status = 'error';
+    } finally { sendState(); }
+  })().finally(() => { dpsBusy = null; });
+  return dpsBusy;
+}
+async function setDpsEnabled(on) {
+  prefs.dps.on = on;
+  savePrefs();
+  if (!on) { unloadDps(); dps.status = 'off'; sendState(); loadGame(0); loadGame(1); return; }
+  await loadInstalledDps();
+  sendState();
+  if (dps.loaded) { loadGame(0); loadGame(1); refreshDps(); }
+  else refreshDps();
+}
+async function runHud(i, script) {
+  const wc = views[i]?.webContents;
+  if (!wc || wc.isDestroyed?.()) return null;
+  try { return await wc.executeJavaScript(script); } catch { return null; }
+}
+async function toggleHud(i) {
+  if (!dps.loaded) return;
+  const visible = await runHud(i, DPS.hudCommandScript('toggleInGameHud'));
+  if (visible === null) return;
+  hudRestored[i] = true;
+  prefs.dps.hud[i] = visible === true;
+  savePrefs(); sendState();
+}
+// Mantém o botão DPS em dia (o HUD tem botão de fechar próprio) e reabre o HUD depois de recarregar.
+async function pollHud() {
+  if (!dps.loaded) return;
+  let changed = false;
+  for (let i = 0; i < views.length; i++) {
+    if (hudBusy[i]) continue;
+    hudBusy[i] = true;
+    try {
+      const visible = await runHud(i, DPS.HUD_STATE_SCRIPT);
+      if (visible === null) continue;
+      if (!hudRestored[i]) {
+        hudRestored[i] = true;
+        if (prefs.dps.hud[i] && !visible) await runHud(i, DPS.hudCommandScript('toggleInGameHud'));
+        continue;
+      }
+      if (prefs.dps.hud[i] !== visible) { prefs.dps.hud[i] = visible; changed = true; }
+    } finally { hudBusy[i] = false; }
+  }
+  if (changed) { savePrefs(); sendState(); }
+}
+function closeDpsPanel(i) {
+  const win = dpsPanels[i];
+  dpsPanels[i] = null;
+  if (win && !win.isDestroyed()) win.close();
+}
+// Painel completo da extensão (o mesmo do ícone no Chrome), ligado à sessão da conta.
+function openDpsPanel(i) {
+  if (!dps.loaded || !dps.id || !main) return;
+  const existing = dpsPanels[i];
+  if (existing && !existing.isDestroyed()) { existing.focus(); return; }
+  const win = new BrowserWindow({ width: 420, height: 640, minWidth: 320, minHeight: 300, parent: main, autoHideMenuBar: true,
+    title: `DPS · ${prefs.names[i] || `Conta ${i + 1}`}`, backgroundColor: '#0b0f17', icon: path.join(__dirname, 'icon.png'),
+    webPreferences: { partition: `persist:leveling-account-${i + 1}`, contextIsolation: true, nodeIntegration: false, sandbox: true } });
+  const base = `chrome-extension://${dps.id}/`;
+  win.webContents.on('will-navigate', (event, url) => { if (!url.startsWith(base)) event.preventDefault(); });
+  win.webContents.setWindowOpenHandler(({ url }) => { if (isWebUrl(url)) shell.openExternal(url); return { action: 'deny' }; });
+  win.on('page-title-updated', event => event.preventDefault());
+  win.on('closed', () => { if (dpsPanels[i] === win) dpsPanels[i] = null; });
+  dpsPanels[i] = win;
+  win.loadURL(base + 'popup.html').catch(() => {});
 }
 function hardened(partition) {
   return { partition, nodeIntegration: false, contextIsolation: true, sandbox: true,
@@ -443,17 +598,14 @@ function guardNavigation(wc) {
   wc.on('will-redirect', (event, url) => { if (!isGameUrl(url)) event.preventDefault(); });
   wc.on('will-attach-webview', event => event.preventDefault());
 }
-// Instala o limitador na página já carregada. O Phaser chama
-// window.requestAnimationFrame a cada frame, então a injeção tardia vale.
 function installLimiterNow(wc) {
   if (!wc || wc.isDestroyed?.()) return Promise.resolve();
   return Promise.resolve(wc.executeJavaScript(LIMITER_SOURCE)).catch(() => {});
 }
 async function loadGame(i) {
   try { await views[i].webContents.loadURL(GAME_URL); }
-  catch { /* did-fail-load displays the actionable status. */ }
+  catch {  }
 }
-// Atalhos com Ctrl (as teclas soltas continuam indo para o jogo).
 function handleShortcut(event, input) {
   if (input.type !== 'keyDown') return;
   const key = String(input.key || '').toLowerCase();
@@ -487,7 +639,6 @@ function createAccount(i) {
   guardNavigation(wc);
   wc.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
   wc.session.setPermissionCheckHandler(() => false);
-  // A game popup keeps the account's session and remains sandboxed; outside links open in the browser.
   wc.setWindowOpenHandler(({ url }) => {
     if (isGameUrl(url)) return { action: 'allow', overrideBrowserWindowOptions: { width: 1000, height: 760, autoHideMenuBar: true, webPreferences: hardened(partition) } };
     if (isWebUrl(url)) shell.openExternal(url);
@@ -503,14 +654,13 @@ function createAccount(i) {
       .catch(() => {}));
   });
   wc.on('dom-ready', () => {
-    // Injeção tardia: cobre o caso em que o CDP não está disponível.
     installLimiterNow(wc).then(() => { lastFps[i] = null; schedulePerf(0); });
     installCapture(wc);
     startCredWatch(i);
     applyCredentials(i);
     sendState();
   });
-  wc.on('did-start-loading', () => { states[i].status = 'st_loading'; sendState(); });
+  wc.on('did-start-loading', () => { hudRestored[i] = false; states[i].status = 'st_loading'; sendState(); });
   wc.on('did-stop-loading', () => {
     if (states[i].status === 'st_loading') states[i].status = 'st_open';
     sendState();
@@ -573,7 +723,6 @@ function createWindow() {
   powerMonitor?.on?.('unlock-screen', lock(false));
   powerMonitor?.on?.('suspend', lock(true));
   powerMonitor?.on?.('resume', lock(false));
-  // abrir a janela grande de novo traz a conta da janelinha de volta
   main.on('restore', () => { if (pip) closePip(); });
   const remember = () => {
     if (!main.isMaximized() && !main.isFullScreen()) prefs.bounds = main.getBounds();
@@ -599,6 +748,11 @@ function createWindow() {
     views = []; main = null;
     clearInterval(usageTimer);
     clearTimeout(perfTimer);
+    clearInterval(autoReloadTimer);
+    clearTimeout(autoReloadSecond);
+    clearInterval(dpsTimer);
+    clearInterval(dpsPollTimer);
+    for (let i = 0; i < 2; i++) closeDpsPanel(i);
     for (const timer of credWatch) clearInterval(timer);
     if (blocker !== undefined && powerSaveBlocker.isStarted(blocker)) powerSaveBlocker.stop(blocker);
     blocker = undefined;
@@ -606,14 +760,21 @@ function createWindow() {
   blocker = powerSaveBlocker.start('prevent-app-suspension');
   layout();
   applyPerf();
-  loadGame(0); loadGame(1);
+  loadInstalledDps().finally(() => {
+    if (!main) return;
+    sendState();
+    loadGame(0); loadGame(1);
+    refreshDps();
+  });
+  dpsTimer = setInterval(refreshDps, 12 * 60 * 60 * 1000);
+  dpsPollTimer = setInterval(pollHud, 2500);
   if (prefs.usage) setUsage(true);
+  setupAutoReload();
   checkUpdates();
   setInterval(checkUpdates, 6 * 60 * 60 * 1000).unref?.();
 }
 ipcMain.handle('dual:command', async (event, message) => {
   if (!main || !message || typeof message !== 'object') return;
-  // a janelinha só pode trocar de conta, voltar para a janela grande e pedir o estado
   if (pip && event.sender === pip.win.webContents && event.senderFrame?.url === PIP_URL) {
     if (message.action === 'state') sendState();
     if (message.action === 'pipSwap') swapPip();
@@ -630,7 +791,11 @@ ipcMain.handle('dual:command', async (event, message) => {
   if (action === 'reloadBoth') { loadGame(0); loadGame(1); return; }
   if (action === 'lang' && LANGS.includes(value)) { prefs.lang = value; savePrefs(); sendState(); return; }
   if (action === 'pip') { togglePip(); return; }
+  if (action === 'autoReload') { prefs.autoReload = cleanAutoReload(value); setupAutoReload(); savePrefs(); sendState(); return; }
   if (action === 'usage') { setUsage(!prefs.usage); savePrefs(); sendState(); return; }
+  if (action === 'dpsEnabled') { await setDpsEnabled(!prefs.dps.on); return; }
+  if (action === 'dpsRetry') { refreshDps(); return; }
+  if (action === 'dpsStore') { shell.openExternal(DPS.DPS_STORE); return; }
   if (action === 'credSave') {
     if (index !== 0 && index !== 1) return;
     if (!credAvailable) { sendState(); return; }
@@ -638,7 +803,7 @@ ipcMain.handle('dual:command', async (event, message) => {
     const pass = String(value?.pass ?? '').slice(0, 128);
     const auto = value?.auto !== false;
     const existing = credentials[index];
-    if (!/^[a-z0-9_-]{3,16}$/.test(user) || (!pass && !existing)) { sendState(); return; }
+    if (!/^[A-Za-z0-9_-]{3,16}$/.test(user) || (!pass && !existing)) { sendState(); return; }
     const previous = existing;
     credentials[index] = { user, pass: pass || existing.pass, auto };
     if (saveCredentials()) applyCredentials(index);
@@ -685,6 +850,8 @@ ipcMain.handle('dual:command', async (event, message) => {
   if (!wc || wc.isDestroyed()) return;
   if (action === 'focus') { focusAccount(index); return; }
   if (action === 'pipOpen') { openPip(index); return; }
+  if (action === 'dpsHud') { await toggleHud(index); return; }
+  if (action === 'dpsPanel') { openDpsPanel(index); return; }
   if (action === 'expand') { const target = index ? 'two' : 'one'; setMode(prefs.mode === target ? prefs.split : target); savePrefs(); return; }
   if (action === 'reload') await loadGame(index);
   if (action === 'mute') toggleMute(index);
@@ -696,7 +863,6 @@ ipcMain.handle('dual:command', async (event, message) => {
 });
 async function shots() {
   const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
-  // As páginas ficam em views separadas: copia cada uma para dentro da interface e captura tudo junto.
   const shot = async (name, keepOverlay = false) => {
     const imgs = [];
     for (const [i, v] of views.entries()) if (current.views[i]) imgs.push({ r: current.views[i], src: (await v.webContents.capturePage()).toDataURL() });
@@ -723,7 +889,6 @@ async function shots() {
   saving = true; app.quit();
 }
 function installMenu() {
-  // No macOS o menu padrão mantém Cmd+C/V/Q e a tela cheia; nas demais plataformas a barra fica oculta.
   if (!IS_MAC) { Menu.setApplicationMenu(null); return; }
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     { role: 'appMenu' },

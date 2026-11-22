@@ -1,5 +1,4 @@
 'use strict';
-// Faixa de cima da janelinha flutuante: mostra a conta e tem os botões de trocar e voltar.
 const api = window.dual;
 const I18N = window.I18N;
 if (api) {
